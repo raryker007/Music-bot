@@ -16,7 +16,26 @@ const express  = require('express');
 const cors     = require('cors');
 const path     = require('path');
 const fs       = require('fs');
-const { spawn } = require('child_process');
+const { spawn, execSync } = require('child_process');
+
+// ── Auto-install yt-dlp if not found ──────────────────────────
+try {
+  execSync('yt-dlp --version', { stdio: 'ignore' });
+  console.log('✅ yt-dlp already installed');
+} catch (e) {
+  console.log('⏳ Installing yt-dlp...');
+  try {
+    execSync('pip3 install yt-dlp', { stdio: 'inherit' });
+    console.log('✅ yt-dlp installed!');
+  } catch (e2) {
+    try {
+      execSync('pip install yt-dlp', { stdio: 'inherit' });
+      console.log('✅ yt-dlp installed via pip!');
+    } catch (e3) {
+      console.error('❌ yt-dlp install failed:', e3.message);
+    }
+  }
+}
 const { v4: uuidv4 } = require('uuid');
 
 const app      = express();
