@@ -1,0 +1,1308 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Premium Video Hub v3.0</title>
+  <meta name="description" content="Download videos from 10+ platforms with AI-powered quality selection.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --font: 'DM Sans', system-ui, sans-serif;
+      --mono: 'DM Mono', monospace;
+      --bg: #070a12; --bg-2: #0c1020; --bg-3: #111726;
+      --surface: #141a2c; --surface-2: #1a2138;
+      --border: rgba(255,255,255,0.06); --border-2: rgba(255,255,255,0.11);
+      --text: #e8ecf5; --text-2: #8892b0; --text-3: #4a5568;
+      --indigo: #6366f1; --indigo-2: #818cf8; --indigo-3: #a5b4fc;
+      --violet: #8b5cf6; --violet-2: #a78bfa;
+      --cyan: #22d3ee; --cyan-2: #67e8f9;
+      --rose: #f43f5e; --amber: #f59e0b; --emerald: #10b981; --green: #22c55e;
+      --pink: #ec4899;
+      --grad-1: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #22d3ee 100%);
+      --grad-2: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+      --grad-3: linear-gradient(135deg, #f43f5e 0%, #ec4899 100%);
+      --grad-4: linear-gradient(135deg, #10b981 0%, #22d3ee 100%);
+      --grad-glass: linear-gradient(135deg, rgba(99,102,241,0.12) 0%, rgba(139,92,246,0.06) 100%);
+      --radius: 12px; --radius-2: 18px; --radius-3: 26px;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.4);
+      --shadow-md: 0 4px 24px rgba(0,0,0,0.5);
+      --shadow-lg: 0 8px 40px rgba(0,0,0,0.6);
+      --shadow-glow: 0 0 40px rgba(99,102,241,0.22);
+      --shadow-glow-cyan: 0 0 30px rgba(34,211,238,0.2);
+      --transition: 0.2s cubic-bezier(0.4,0,0.2,1);
+      --spring: 0.5s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    [data-theme="light"] {
+      --bg: #f0f2f8; --bg-2: #e8eaf3; --bg-3: #f5f6fa;
+      --surface: #ffffff; --surface-2: #f8f9ff;
+      --border: rgba(0,0,0,0.07); --border-2: rgba(0,0,0,0.13);
+      --text: #0f172a; --text-2: #475569; --text-3: #94a3b8;
+      --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+      --shadow-md: 0 4px 20px rgba(0,0,0,0.1);
+      --shadow-lg: 0 8px 40px rgba(0,0,0,0.12);
+    }
+    html { font-size: 16px; scroll-behavior: smooth; }
+    body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100dvh; overflow-x: hidden; -webkit-font-smoothing: antialiased; }
+    /* Noise texture */
+    body::before { content:''; position:fixed; inset:0; background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E"); pointer-events:none; z-index:0; }
+    /* Aurora */
+    .aurora { position:fixed; inset:0; pointer-events:none; z-index:0; overflow:hidden; }
+    .aurora-blob { position:absolute; border-radius:50%; filter:blur(90px); animation:aurora-float 22s ease-in-out infinite; }
+    .aurora-blob:nth-child(1) { width:700px; height:700px; background:var(--indigo); opacity:0.1; top:-200px; left:-150px; animation-duration:28s; }
+    .aurora-blob:nth-child(2) { width:500px; height:500px; background:var(--violet); opacity:0.1; top:40%; right:-150px; animation-delay:-10s; animation-duration:22s; }
+    .aurora-blob:nth-child(3) { width:400px; height:400px; background:var(--cyan); opacity:0.07; bottom:-80px; left:25%; animation-delay:-18s; }
+    @keyframes aurora-float { 0%,100%{transform:translate(0,0)scale(1)} 33%{transform:translate(40px,-40px)scale(1.06)} 66%{transform:translate(-30px,25px)scale(0.94)} }
+    #app { position:relative; z-index:1; display:flex; flex-direction:column; min-height:100dvh; }
+    /* ── Nav ──────────────────────────────────────────────────── */
+    .nav { position:sticky; top:0; z-index:100; padding:0 16px; height:58px; display:flex; align-items:center; justify-content:space-between; background:rgba(7,10,18,0.88); backdrop-filter:blur(24px); border-bottom:1px solid var(--border); }
+    [data-theme="light"] .nav { background:rgba(240,242,248,0.92); }
+    .nav-brand { display:flex; align-items:center; gap:10px; text-decoration:none; color:var(--text); }
+    .nav-logo { width:32px; height:32px; background:var(--grad-2); border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:15px; box-shadow:0 0 18px rgba(99,102,241,0.45); }
+    .nav-title { font-weight:700; font-size:15px; letter-spacing:-0.3px; }
+    .nav-title span { color:var(--indigo-2); }
+    .nav-actions { display:flex; align-items:center; gap:6px; }
+    .icon-btn { width:32px; height:32px; border-radius:9px; border:1px solid var(--border); background:var(--surface); color:var(--text-2); display:flex; align-items:center; justify-content:center; cursor:pointer; transition:var(--transition); font-size:14px; }
+    .icon-btn:hover { background:var(--surface-2); color:var(--text); }
+    .badge-v { display:inline-flex; align-items:center; gap:4px; padding:3px 9px; border-radius:20px; font-size:11px; font-weight:600; background:linear-gradient(135deg,rgba(99,102,241,0.2),rgba(139,92,246,0.2)); border:1px solid rgba(99,102,241,0.3); color:var(--indigo-2); }
+    .avatar { width:32px; height:32px; border-radius:50%; background:var(--grad-2); display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:600; cursor:pointer; border:2px solid var(--border-2); overflow:hidden; transition:var(--transition); }
+    .avatar:hover { border-color:var(--indigo); transform:scale(1.05); }
+    .avatar img { width:100%; height:100%; object-fit:cover; }
+    /* ── Bottom nav ──────────────────────────────────────────── */
+    .bottom-nav { position:fixed; bottom:0; left:0; right:0; z-index:100; padding:6px 6px calc(6px + env(safe-area-inset-bottom)); background:rgba(7,10,18,0.94); backdrop-filter:blur(24px); border-top:1px solid var(--border); display:flex; justify-content:space-around; }
+    [data-theme="light"] .bottom-nav { background:rgba(240,242,248,0.97); }
+    .nav-item { display:flex; flex-direction:column; align-items:center; gap:2px; padding:6px 10px; border-radius:var(--radius); cursor:pointer; transition:var(--transition); color:var(--text-3); border:none; background:transparent; min-width:48px; }
+    .nav-item.active { color:var(--indigo-2); }
+    .nav-item-icon { font-size:19px; line-height:1; }
+    .nav-item-label { font-size:9px; font-weight:600; letter-spacing:0.4px; text-transform:uppercase; }
+    .nav-item.active .nav-item-icon { filter:drop-shadow(0 0 8px rgba(99,102,241,0.7)); }
+    /* ── Pages ───────────────────────────────────────────────── */
+    .page { flex:1; padding:18px 14px calc(85px + env(safe-area-inset-bottom)); display:none; animation:page-in 0.28s ease; }
+    .page.active { display:block; }
+    @keyframes page-in { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+    /* ── Base components ──────────────────────────────────────── */
+    .card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-2); padding:18px; transition:var(--transition); }
+    .card:hover { border-color:var(--border-2); }
+    .card-glass { background:var(--grad-glass); border:1px solid rgba(99,102,241,0.18); backdrop-filter:blur(12px); }
+    .card-glow { box-shadow:var(--shadow-glow); }
+    .h1 { font-size:clamp(24px,6vw,36px); font-weight:700; letter-spacing:-0.8px; line-height:1.1; }
+    .h2 { font-size:21px; font-weight:700; letter-spacing:-0.4px; }
+    .h3 { font-size:16px; font-weight:600; letter-spacing:-0.2px; }
+    .body { font-size:14px; line-height:1.6; color:var(--text-2); }
+    .caption { font-size:12px; color:var(--text-3); }
+    .gradient-text { background:var(--grad-1); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+    .btn { display:inline-flex; align-items:center; justify-content:center; gap:7px; padding:11px 18px; border-radius:var(--radius); font-family:var(--font); font-size:14px; font-weight:600; cursor:pointer; transition:var(--transition); border:none; letter-spacing:-0.2px; text-decoration:none; }
+    .btn-primary { background:var(--grad-2); color:#fff; box-shadow:0 4px 18px rgba(99,102,241,0.35); }
+    .btn-primary:hover { transform:translateY(-1px); box-shadow:0 6px 26px rgba(99,102,241,0.5); }
+    .btn-primary:active { transform:translateY(0); }
+    .btn-secondary { background:var(--surface-2); color:var(--text); border:1px solid var(--border-2); }
+    .btn-secondary:hover { background:var(--surface); }
+    .btn-ghost { background:transparent; color:var(--text-2); }
+    .btn-ghost:hover { color:var(--text); background:var(--surface); }
+    .btn-danger { background:rgba(244,63,94,0.15); color:var(--rose); border:1px solid rgba(244,63,94,0.3); }
+    .btn-full { width:100%; }
+    .btn-sm { padding:7px 13px; font-size:12px; }
+    .btn-lg { padding:15px 26px; font-size:15px; border-radius:var(--radius-2); }
+    .btn:disabled { opacity:0.45; cursor:not-allowed; transform:none !important; }
+    /* Input */
+    .input { width:100%; padding:11px 14px; background:var(--bg-3); border:1px solid var(--border); border-radius:var(--radius); color:var(--text); font-family:var(--font); font-size:14px; transition:var(--transition); outline:none; }
+    .input:focus { border-color:var(--indigo); box-shadow:0 0 0 3px rgba(99,102,241,0.14); }
+    .input::placeholder { color:var(--text-3); }
+    .select-wrap { position:relative; }
+    .select-wrap::after { content:'▾'; position:absolute; right:12px; top:50%; transform:translateY(-50%); color:var(--text-3); pointer-events:none; }
+    .select { appearance:none; width:100%; padding:11px 38px 11px 14px; background:var(--bg-3); border:1px solid var(--border); border-radius:var(--radius); color:var(--text); font-family:var(--font); font-size:14px; cursor:pointer; outline:none; }
+    .select:focus { border-color:var(--indigo); }
+    /* Chips */
+    .chips-row { display:flex; gap:8px; overflow-x:auto; padding-bottom:6px; margin-bottom:14px; scrollbar-width:none; }
+    .chips-row::-webkit-scrollbar { display:none; }
+    .chip { flex-shrink:0; padding:6px 14px; border-radius:999px; font-size:13px; font-weight:500; background:var(--surface); border:1px solid var(--border); color:var(--text-2); cursor:pointer; transition:var(--transition); white-space:nowrap; }
+    .chip.active { background:rgba(99,102,241,0.18); border-color:rgba(99,102,241,0.4); color:var(--indigo-2); }
+    /* Status badges */
+    .status-badge { display:inline-flex; align-items:center; gap:5px; padding:3px 9px; border-radius:999px; font-size:12px; font-weight:600; }
+    .status-queued { background:rgba(245,158,11,0.15); color:var(--amber); }
+    .status-processing { background:rgba(99,102,241,0.15); color:var(--indigo-2); }
+    .status-completed { background:rgba(16,185,129,0.15); color:var(--emerald); }
+    .status-failed { background:rgba(244,63,94,0.15); color:var(--rose); }
+    .status-dot { width:6px; height:6px; border-radius:50%; background:currentColor; }
+    .status-processing .status-dot { animation:pulse 1s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.8)} }
+    /* Stat card */
+    .stat-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-2); padding:16px; position:relative; overflow:hidden; }
+    .stat-card::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; background:var(--grad-1); opacity:0; transition:opacity var(--transition); }
+    .stat-card:hover::before { opacity:1; }
+    .stat-value { font-size:24px; font-weight:700; letter-spacing:-0.8px; }
+    .stat-label { font-size:12px; color:var(--text-2); margin-top:4px; }
+    .stat-icon { width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:17px; margin-bottom:10px; }
+    /* Video card */
+    .video-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-2); overflow:hidden; transition:all var(--transition); cursor:pointer; }
+    .video-card:hover { transform:translateY(-2px); box-shadow:var(--shadow-md); border-color:var(--border-2); }
+    .video-thumb { aspect-ratio:16/9; background:var(--bg-3); position:relative; overflow:hidden; display:flex; align-items:center; justify-content:center; font-size:30px; }
+    .video-thumb-overlay { position:absolute; inset:0; background:linear-gradient(to top,rgba(0,0,0,0.7) 0%,transparent 60%); }
+    .video-duration { position:absolute; bottom:7px; right:7px; background:rgba(0,0,0,0.78); color:#fff; font-size:11px; padding:2px 6px; border-radius:4px; font-family:var(--mono); }
+    .video-platform-badge { position:absolute; top:7px; left:7px; background:rgba(0,0,0,0.72); backdrop-filter:blur(4px); color:#fff; font-size:11px; font-weight:600; padding:2px 8px; border-radius:999px; }
+    .video-card-body { padding:12px; }
+    .video-card-title { font-weight:600; font-size:13px; margin-bottom:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .video-card-meta { display:flex; align-items:center; justify-content:space-between; }
+    /* Upload zone */
+    .upload-zone { border:2px dashed var(--border-2); border-radius:var(--radius-2); padding:40px 18px; text-align:center; cursor:pointer; transition:all var(--transition); position:relative; overflow:hidden; background:var(--surface); }
+    .upload-zone::before { content:''; position:absolute; inset:0; background:var(--grad-glass); opacity:0; transition:opacity var(--transition); }
+    .upload-zone:hover,.upload-zone.dragover { border-color:var(--indigo); box-shadow:var(--shadow-glow); }
+    .upload-zone:hover::before,.upload-zone.dragover::before { opacity:1; }
+    .upload-icon { font-size:42px; margin-bottom:12px; display:block; animation:float 3s ease-in-out infinite; }
+    @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+    /* Progress */
+    .progress-bar-wrap { background:var(--bg-3); border-radius:999px; height:7px; overflow:hidden; }
+    .progress-bar { height:100%; border-radius:999px; background:var(--grad-1); transition:width 0.4s cubic-bezier(0.4,0,0.2,1); position:relative; }
+    .progress-bar::after { content:''; position:absolute; inset:0; background:linear-gradient(90deg,transparent,rgba(255,255,255,0.28),transparent); animation:shimmer 1.6s infinite; }
+    @keyframes shimmer { from{transform:translateX(-100%)} to{transform:translateX(100%)} }
+    /* Mini bar (for platform stats) */
+    .mini-bar-wrap { height:5px; background:var(--bg-3); border-radius:999px; overflow:hidden; }
+    .mini-bar { height:100%; border-radius:999px; transition:width 0.8s cubic-bezier(0.4,0,0.2,1); }
+    /* Timeline */
+    .timeline { display:flex; flex-direction:column; gap:0; }
+    .timeline-step { display:flex; gap:14px; position:relative; }
+    .timeline-step:not(:last-child) .timeline-line { position:absolute; left:14px; top:30px; bottom:-6px; width:2px; background:var(--border); }
+    .timeline-step.done .timeline-line { background:var(--emerald); }
+    .timeline-step.active .timeline-line { background:linear-gradient(to bottom,var(--indigo),var(--border)); }
+    .timeline-dot { width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:13px; flex-shrink:0; border:2px solid var(--border); background:var(--surface); transition:all 0.4s ease; }
+    .timeline-step.done .timeline-dot { background:rgba(16,185,129,0.15); border-color:var(--emerald); }
+    .timeline-step.active .timeline-dot { background:rgba(99,102,241,0.2); border-color:var(--indigo); box-shadow:0 0 16px rgba(99,102,241,0.4); animation:dot-pulse 1.5s ease-in-out infinite; }
+    @keyframes dot-pulse { 0%,100%{box-shadow:0 0 14px rgba(99,102,241,0.4)} 50%{box-shadow:0 0 22px rgba(99,102,241,0.7)} }
+    .timeline-content { padding:3px 0 18px; }
+    .timeline-title { font-weight:600; font-size:14px; }
+    .timeline-desc { font-size:12px; color:var(--text-2); margin-top:2px; }
+    /* Toggle */
+    .toggle-row { display:flex; align-items:center; justify-content:space-between; padding:13px 0; border-bottom:1px solid var(--border); }
+    .toggle-row:last-child { border-bottom:none; }
+    .toggle { position:relative; width:42px; height:22px; }
+    .toggle input { opacity:0; width:0; height:0; }
+    .toggle-slider { position:absolute; inset:0; background:var(--surface-2); border-radius:999px; cursor:pointer; transition:0.3s; border:1px solid var(--border); }
+    .toggle-slider::before { content:''; position:absolute; width:16px; height:16px; background:#fff; border-radius:50%; left:2px; top:2px; transition:0.3s cubic-bezier(0.34,1.56,0.64,1); box-shadow:0 1px 4px rgba(0,0,0,0.3); }
+    .toggle input:checked + .toggle-slider { background:var(--indigo); border-color:var(--indigo); }
+    .toggle input:checked + .toggle-slider::before { transform:translateX(20px); }
+    /* Toast */
+    .toast-container { position:fixed; top:70px; right:14px; left:14px; z-index:9999; display:flex; flex-direction:column; gap:7px; pointer-events:none; }
+    .toast { display:flex; align-items:center; gap:10px; padding:12px 14px; background:var(--surface); border:1px solid var(--border-2); border-radius:var(--radius-2); box-shadow:var(--shadow-lg); animation:toast-in 0.3s var(--spring); pointer-events:all; font-size:13px; font-weight:500; }
+    .toast.removing { animation:toast-out 0.3s ease forwards; }
+    .toast-success { border-left:3px solid var(--emerald); }
+    .toast-error   { border-left:3px solid var(--rose); }
+    .toast-info    { border-left:3px solid var(--indigo); }
+    .toast-warning { border-left:3px solid var(--amber); }
+    @keyframes toast-in  { from{opacity:0;transform:translateX(20px)} to{opacity:1;transform:translateX(0)} }
+    @keyframes toast-out { from{opacity:1;transform:translateX(0)} to{opacity:0;transform:translateX(20px)} }
+    /* Modal */
+    .modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,0.72); backdrop-filter:blur(10px); z-index:200; display:none; align-items:flex-end; justify-content:center; }
+    .modal-backdrop.active { display:flex; animation:fade-in 0.2s ease; }
+    @keyframes fade-in { from{opacity:0} to{opacity:1} }
+    .modal { width:100%; max-width:480px; background:var(--bg-2); border-radius:var(--radius-3) var(--radius-3) 0 0; padding:22px; border:1px solid var(--border); border-bottom:none; animation:slide-up 0.35s var(--spring); max-height:90dvh; overflow-y:auto; }
+    @keyframes slide-up { from{transform:translateY(100%)} to{transform:translateY(0)} }
+    .modal-handle { width:38px; height:4px; background:var(--border-2); border-radius:999px; margin:0 auto 18px; }
+    /* Sections */
+    .section { margin-bottom:20px; }
+    .section-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+    .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .grid-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; }
+    .gap-8  { display:flex; flex-direction:column; gap:8px; }
+    .gap-12 { display:flex; flex-direction:column; gap:12px; }
+    .gap-16 { display:flex; flex-direction:column; gap:16px; }
+    .flex-center { display:flex; align-items:center; }
+    .flex-between { display:flex; align-items:center; justify-content:space-between; }
+    .gap-6 { gap:6px; }
+    .mt-4{margin-top:4px;} .mt-8{margin-top:8px;} .mt-12{margin-top:12px;}
+    .mt-16{margin-top:16px;} .mt-24{margin-top:24px;}
+    /* File item */
+    .file-item { display:flex; align-items:center; gap:10px; padding:11px; background:var(--bg-3); border:1px solid var(--border); border-radius:var(--radius); transition:var(--transition); }
+    .file-item-icon { width:38px; height:38px; border-radius:9px; background:rgba(99,102,241,0.14); display:flex; align-items:center; justify-content:center; font-size:17px; flex-shrink:0; }
+    .file-item-info { flex:1; min-width:0; }
+    .file-item-name { font-size:13px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .file-item-size { font-size:11px; color:var(--text-3); margin-top:2px; }
+    .file-item-remove { color:var(--rose); font-size:17px; cursor:pointer; padding:4px; opacity:0.7; transition:var(--transition); }
+    .file-item-remove:hover { opacity:1; }
+    /* Settings */
+    .settings-section { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-2); overflow:hidden; }
+    .settings-item { display:flex; align-items:center; gap:12px; padding:14px; border-bottom:1px solid var(--border); cursor:pointer; transition:var(--transition); }
+    .settings-item:last-child { border-bottom:none; }
+    .settings-item:hover { background:var(--surface-2); }
+    .settings-item-icon { width:34px; height:34px; border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0; }
+    .settings-item-info { flex:1; }
+    .settings-item-label { font-size:14px; font-weight:500; }
+    .settings-item-sub { font-size:12px; color:var(--text-3); margin-top:2px; }
+    .settings-item-arrow { color:var(--text-3); font-size:18px; }
+    /* Empty state */
+    .empty-state { text-align:center; padding:40px 20px; }
+    .empty-icon { font-size:44px; margin-bottom:12px; }
+    /* Profile */
+    .profile-banner { text-align:center; padding:28px 20px 22px; margin-bottom:16px; background:var(--surface); border-radius:var(--radius-2); border:1px solid var(--border); position:relative; overflow:hidden; }
+    .profile-banner::before { content:''; position:absolute; inset:0; background:var(--grad-glass); }
+    .profile-avatar { width:72px; height:72px; border-radius:50%; background:var(--grad-2); display:flex; align-items:center; justify-content:center; font-size:26px; font-weight:700; margin:0 auto 12px; border:3px solid rgba(99,102,241,0.4); box-shadow:0 0 20px rgba(99,102,241,0.3); position:relative; z-index:1; overflow:hidden; }
+    .profile-avatar img { width:100%; height:100%; object-fit:cover; }
+    .profile-name { font-size:18px; font-weight:700; margin-bottom:4px; position:relative; z-index:1; }
+    .profile-handle { font-size:13px; color:var(--text-2); position:relative; z-index:1; }
+    /* Hero */
+    .hero-section { padding:20px 0 16px; }
+    .hero-greeting { font-size:13px; color:var(--text-2); font-weight:500; }
+    .hero-title { font-size:22px; font-weight:700; letter-spacing:-0.5px; margin-top:2px; }
+    /* Leaderboard item */
+    .lb-item { display:flex; align-items:center; gap:12px; padding:12px 14px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-2); transition:var(--transition); }
+    .lb-item:hover { border-color:var(--border-2); }
+    .lb-rank { width:30px; text-align:center; font-size:18px; font-weight:700; flex-shrink:0; }
+    .lb-avatar { width:38px; height:38px; border-radius:50%; background:var(--grad-2); display:flex; align-items:center; justify-content:center; font-size:15px; font-weight:700; flex-shrink:0; }
+    .lb-info { flex:1; min-width:0; }
+    .lb-name { font-size:14px; font-weight:600; }
+    .lb-badge { font-size:11px; color:var(--text-2); margin-top:2px; }
+    .lb-count { font-size:16px; font-weight:700; color:var(--indigo-2); }
+    /* Referral card */
+    .referral-code-box { background:var(--bg-3); border:2px dashed var(--border-2); border-radius:var(--radius); padding:14px 16px; text-align:center; cursor:pointer; transition:var(--transition); }
+    .referral-code-box:hover { border-color:var(--indigo); background:rgba(99,102,241,0.06); }
+    .referral-code { font-family:var(--mono); font-size:20px; font-weight:600; letter-spacing:3px; color:var(--indigo-2); }
+    /* AI bubble */
+    .ai-bubble { background:linear-gradient(135deg,rgba(99,102,241,0.12),rgba(139,92,246,0.08)); border:1px solid rgba(99,102,241,0.25); border-radius:var(--radius-2); padding:14px 16px; }
+    .ai-header { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+    .ai-dot { width:8px; height:8px; border-radius:50%; background:var(--grad-2); box-shadow:0 0 8px rgba(99,102,241,0.6); animation:pulse 1.2s infinite; }
+    .ai-text { font-size:13px; line-height:1.6; color:var(--text-2); }
+    /* Trending row */
+    .trend-row { display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--border); }
+    .trend-row:last-child { border-bottom:none; }
+    .trend-platform { width:32px; text-align:center; font-size:18px; }
+    .trend-info { flex:1; min-width:0; }
+    .trend-name { font-size:13px; font-weight:600; }
+    .trend-bar-wrap { margin-top:4px; }
+    .trend-count { font-size:12px; color:var(--text-2); font-family:var(--mono); flex-shrink:0; }
+    /* Confetti particle */
+    .confetti-particle { position:fixed; top:-10px; pointer-events:none; z-index:9998; border-radius:2px; animation:confetti-fall linear forwards; }
+    @keyframes confetti-fall { to { transform:translateY(110vh) rotate(720deg); opacity:0; } }
+    /* Streak fire */
+    @keyframes streak-pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.15)} }
+    .streak-fire { animation:streak-pulse 0.8s ease-in-out infinite; display:inline-block; }
+    /* Platform icon badge (color ring) */
+    .platform-ring { width:38px; height:38px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0; }
+  </style>
+</head>
+<body>
+  <div class="aurora"><div class="aurora-blob"></div><div class="aurora-blob"></div><div class="aurora-blob"></div></div>
+  <div id="app">
+
+    <!-- ══ Nav ══════════════════════════════════════════ -->
+    <nav class="nav">
+      <a class="nav-brand" href="#">
+        <div class="nav-logo">🎬</div>
+        <span class="nav-title">Video<span>Hub</span></span>
+      </a>
+      <div class="nav-actions">
+        <span class="badge-v" id="plan-badge">✦ Free</span>
+        <button class="icon-btn" id="theme-toggle" title="Toggle theme">🌙</button>
+        <div class="avatar" id="user-avatar"><span id="avatar-initials">?</span></div>
+      </div>
+    </nav>
+
+    <!-- ══ PAGE: HOME ════════════════════════════════════ -->
+    <div class="page active" id="page-home">
+      <div class="hero-section">
+        <div class="hero-greeting" id="greeting-text">Good evening 👋</div>
+        <div class="hero-title" id="hero-name">Creator</div>
+      </div>
+
+      <div class="grid-2" style="margin-bottom:20px;">
+        <div class="stat-card"><div class="stat-icon" style="background:rgba(99,102,241,0.15)">🎬</div><div class="stat-value" id="stat-total">0</div><div class="stat-label">Total Videos</div></div>
+        <div class="stat-card"><div class="stat-icon" style="background:rgba(16,185,129,0.15)">✅</div><div class="stat-value" id="stat-done">0</div><div class="stat-label">Completed</div></div>
+        <div class="stat-card"><div class="stat-icon" style="background:rgba(34,211,238,0.15)">📥</div><div class="stat-value" id="stat-downloads">0</div><div class="stat-label">Downloads</div></div>
+        <div class="stat-card"><div class="stat-icon" style="background:rgba(245,158,11,0.15)">💾</div><div class="stat-value" id="stat-storage">0 MB</div><div class="stat-label">Storage Used</div></div>
+      </div>
+
+      <!-- Quick download shortcut -->
+      <div class="card card-glass" style="margin-bottom:20px;padding:16px;">
+        <div class="h3" style="margin-bottom:10px;">⚡ Quick Download</div>
+        <div style="display:flex;gap:8px;">
+          <input class="input" id="quick-url-input" placeholder="Paste video URL here…" autocomplete="off" style="flex:1;">
+          <button class="btn btn-primary" id="quick-dl-btn">Go</button>
+        </div>
+        <div id="quick-platform-hint" style="margin-top:8px;font-size:12px;color:var(--text-3);"></div>
+      </div>
+
+      <!-- Streak -->
+      <div class="card" style="margin-bottom:20px;display:flex;align-items:center;gap:14px;" id="streak-card">
+        <div style="font-size:32px;" class="streak-fire" id="streak-icon">🔥</div>
+        <div style="flex:1;">
+          <div class="h3">Download Streak</div>
+          <div class="body mt-4" id="streak-desc">Start downloading to build your streak!</div>
+        </div>
+        <div style="font-size:26px;font-weight:700;color:var(--amber);" id="streak-count">0</div>
+      </div>
+
+      <!-- Recent Videos -->
+      <div class="section">
+        <div class="section-header">
+          <h2 class="h2">Recent Videos</h2>
+          <button class="btn btn-ghost btn-sm" onclick="App.nav('library')">See all →</button>
+        </div>
+        <div id="recent-videos-list" class="gap-12"></div>
+      </div>
+    </div>
+
+    <!-- ══ PAGE: DOWNLOAD ════════════════════════════════ -->
+    <div class="page" id="page-download">
+      <div class="section">
+        <h2 class="h2">Download Video</h2>
+        <p class="body mt-4">Paste a link from any supported platform.</p>
+      </div>
+
+      <!-- URL Input -->
+      <div class="card" style="margin-bottom:14px;padding:16px;">
+        <div style="display:flex;gap:8px;margin-bottom:12px;">
+          <input class="input" id="url-input" placeholder="https://youtube.com/watch?v=…" autocomplete="off" style="flex:1;">
+          <button class="btn btn-secondary btn-sm" id="paste-btn">📋</button>
+        </div>
+        <!-- Platform detector -->
+        <div id="platform-detected" style="display:none;" class="flex-center gap-6" style="margin-bottom:12px;">
+          <span id="detected-icon" style="font-size:20px;">🎬</span>
+          <span id="detected-name" style="font-size:14px;font-weight:600;"></span>
+          <span class="status-badge status-completed" style="margin-left:auto;font-size:11px;">Detected ✓</span>
+        </div>
+        <!-- AI analysis bubble -->
+        <div id="ai-analysis" style="display:none;" class="ai-bubble mt-12">
+          <div class="ai-header">
+            <div class="ai-dot"></div>
+            <span style="font-size:12px;font-weight:600;color:var(--indigo-2);">AI Analysis</span>
+            <span id="ai-loading" style="font-size:11px;color:var(--text-3);margin-left:auto;">Analyzing…</span>
+          </div>
+          <div class="ai-text" id="ai-analysis-text">Detecting content type and best quality options…</div>
+        </div>
+      </div>
+
+      <!-- Quality picker -->
+      <div id="quality-section" style="display:none;margin-bottom:14px;">
+        <div class="section-header">
+          <span class="h3">Choose Quality</span>
+          <span class="caption" id="quota-label">Remaining: –</span>
+        </div>
+        <div class="grid-2" id="quality-grid" style="margin-bottom:10px;"></div>
+      </div>
+
+      <!-- Format picker -->
+      <div id="format-section" style="display:none;margin-bottom:14px;">
+        <div class="section-header"><span class="h3">Format</span></div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-secondary" id="fmt-mp4" onclick="Download.setFormat('mp4')" style="flex:1;">🎬 MP4</button>
+          <button class="btn btn-secondary" id="fmt-mp3" onclick="Download.setFormat('mp3')" style="flex:1;">🎵 MP3</button>
+          <button class="btn btn-secondary" id="fmt-webm" onclick="Download.setFormat('webm')" style="flex:1;">📹 WebM</button>
+        </div>
+      </div>
+
+      <button class="btn btn-primary btn-full btn-lg" id="start-download-btn" disabled>⬇️ Start Download</button>
+
+      <!-- Progress -->
+      <div id="dl-progress-wrap" style="display:none;margin-top:16px;">
+        <div class="card">
+          <div class="flex-between" style="margin-bottom:12px;">
+            <span class="h3" id="dl-progress-title">Downloading…</span>
+            <span class="status-badge status-processing"><span class="status-dot"></span>Processing</span>
+          </div>
+          <div class="progress-bar-wrap">
+            <div class="progress-bar" id="dl-progress-bar" style="width:0%"></div>
+          </div>
+          <div class="flex-between mt-8">
+            <span class="caption" id="dl-progress-pct">0%</span>
+            <span class="caption" id="dl-eta">Calculating…</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Download History -->
+      <div class="card mt-16">
+        <div class="section-header" style="margin-bottom:10px;">
+          <h3 class="h3">Recent Downloads</h3>
+          <button class="btn btn-ghost btn-sm" id="clear-dl-history-btn">Clear</button>
+        </div>
+        <div id="dl-history-list">
+          <div class="empty-state" style="padding:22px;">
+            <div class="empty-icon" style="font-size:34px;">📭</div>
+            <p class="body" style="margin-top:6px;">No downloads yet</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ PAGE: UPLOAD ══════════════════════════════════ -->
+    <div class="page" id="page-upload">
+      <div class="section">
+        <h2 class="h2">Upload Video</h2>
+        <p class="body mt-4">Upload local files for processing & conversion.</p>
+      </div>
+      <div class="upload-zone" id="upload-zone">
+        <span class="upload-icon">🎬</span>
+        <h3 class="h3" style="position:relative;z-index:1;">Drop your video here</h3>
+        <p class="body mt-8" style="position:relative;z-index:1;">MP4, MOV, AVI, MKV · Max 2 GB</p>
+        <button class="btn btn-primary mt-16" style="position:relative;z-index:1;" id="select-file-btn">Choose File</button>
+        <input type="file" id="file-input" accept="video/*" multiple style="display:none;">
+      </div>
+      <div id="file-queue-wrap" style="display:none;">
+        <div class="section-header mt-16">
+          <h3 class="h3">Files Selected</h3>
+          <button class="btn btn-ghost btn-sm" id="clear-queue-btn">Clear all</button>
+        </div>
+        <div class="gap-8" id="file-queue-list"></div>
+      </div>
+      <div class="card mt-16" id="process-options-wrap" style="display:none;">
+        <h3 class="h3" style="margin-bottom:14px;">Processing Options</h3>
+        <div class="gap-12">
+          <div><label class="caption" style="display:block;margin-bottom:5px;">Output Format</label>
+            <div class="select-wrap"><select class="select" id="opt-format"><option value="mp4">MP4 (H.264)</option><option value="webm">WebM (VP9)</option><option value="hls">HLS Stream</option></select></div>
+          </div>
+          <div><label class="caption" style="display:block;margin-bottom:5px;">Quality Preset</label>
+            <div class="select-wrap"><select class="select" id="opt-quality"><option value="auto">Auto (Recommended)</option><option value="4k">4K (2160p)</option><option value="1080">1080p HD</option><option value="720">720p</option><option value="480">480p</option></select></div>
+          </div>
+          <div class="toggle-row"><div><div style="font-size:13px;font-weight:500;">Generate Thumbnail</div><div class="caption mt-4">Auto-generate preview</div></div><label class="toggle"><input type="checkbox" id="opt-thumb" checked><span class="toggle-slider"></span></label></div>
+          <div class="toggle-row"><div><div style="font-size:13px;font-weight:500;">AI Subtitles</div><div class="caption mt-4">Auto-generate captions</div></div><label class="toggle"><input type="checkbox" id="opt-subs"><span class="toggle-slider"></span></label></div>
+        </div>
+        <button class="btn btn-primary btn-full mt-16" id="start-upload-btn" disabled>Start Processing</button>
+      </div>
+    </div>
+
+    <!-- ══ PAGE: LIBRARY ════════════════════════════════ -->
+    <div class="page" id="page-library">
+      <div class="section-header">
+        <h2 class="h2">My Library</h2>
+        <button class="icon-btn" id="library-search-btn">🔍</button>
+      </div>
+      <div id="library-search-wrap" style="display:none;margin-bottom:10px;">
+        <input class="input" id="library-search-input" placeholder="Search videos…" autocomplete="off">
+      </div>
+      <div class="chips-row" id="filter-chips">
+        <div class="chip active" data-filter="all">All</div>
+        <div class="chip" data-filter="completed">✅ Done</div>
+        <div class="chip" data-filter="processing">⚙️ Processing</div>
+        <div class="chip" data-filter="failed">❌ Failed</div>
+      </div>
+      <div class="chips-row" id="platform-chips">
+        <div class="chip active" data-platform="all">All Platforms</div>
+        <div class="chip" data-platform="youtube">🔴 YT</div>
+        <div class="chip" data-platform="tiktok">🎵 TikTok</div>
+        <div class="chip" data-platform="instagram">📸 IG</div>
+        <div class="chip" data-platform="upload">📤 Uploaded</div>
+      </div>
+      <div id="library-list" class="gap-12"></div>
+    </div>
+
+    <!-- ══ PAGE: TRENDING ══════════════════════════════= -->
+    <div class="page" id="page-trending">
+      <div class="section">
+        <h2 class="h2">📈 Trending</h2>
+        <p class="body mt-4">Most downloaded platforms in this session.</p>
+      </div>
+      <div class="card" style="margin-bottom:20px;">
+        <div id="trending-list" class="gap-8"></div>
+      </div>
+
+      <!-- Leaderboard section -->
+      <div class="section">
+        <div class="section-header">
+          <h2 class="h2">🏆 Leaderboard</h2>
+          <span class="caption">Top 10</span>
+        </div>
+        <div id="leaderboard-list" class="gap-8"></div>
+      </div>
+    </div>
+
+    <!-- ══ PAGE: PROFILE ════════════════════════════════ -->
+    <div class="page" id="page-profile">
+      <div class="profile-banner">
+        <div class="profile-avatar" id="profile-avatar-display"><span id="profile-initials">?</span></div>
+        <div class="profile-name" id="profile-name-display">Loading…</div>
+        <div class="profile-handle" id="profile-handle-display">@username</div>
+        <div style="margin-top:8px;position:relative;z-index:1;" id="profile-badge-display"></div>
+      </div>
+
+      <!-- Stats row -->
+      <div class="card" style="display:grid;grid-template-columns:repeat(3,1fr);text-align:center;padding:14px;margin-bottom:14px;">
+        <div><div class="stat-value" style="font-size:20px;" id="prof-videos">0</div><div class="caption mt-4">Videos</div></div>
+        <div style="border-left:1px solid var(--border);border-right:1px solid var(--border);"><div class="stat-value" style="font-size:20px;" id="prof-downloads">0</div><div class="caption mt-4">Downloads</div></div>
+        <div><div class="stat-value" style="font-size:20px;" id="prof-streak">0</div><div class="caption mt-4">Streak 🔥</div></div>
+      </div>
+
+      <!-- Plan card -->
+      <div class="card card-glass" style="margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;">
+        <div><div class="h3" id="plan-name-profile">Free Plan</div><div class="caption mt-4">10 downloads/day</div></div>
+        <button class="btn btn-primary btn-sm" id="upgrade-btn">Upgrade ✦</button>
+      </div>
+
+      <!-- Referral section -->
+      <div class="card" style="margin-bottom:14px;">
+        <div class="h3" style="margin-bottom:12px;">🎁 Referral Program</div>
+        <p class="body" style="margin-bottom:12px;">Share your code. For every friend who joins, you get <strong style="color:var(--indigo-2);">+5 bonus downloads/month</strong>.</p>
+        <div class="referral-code-box" id="copy-referral-btn">
+          <div class="caption" style="margin-bottom:4px;">Your code — tap to copy</div>
+          <div class="referral-code" id="referral-code-display">XXXXXXXX</div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:10px;">
+          <button class="btn btn-secondary btn-full btn-sm" id="share-referral-btn">📤 Share Link</button>
+          <div style="flex:1;text-align:right;font-size:12px;color:var(--text-2);display:flex;align-items:center;justify-content:flex-end;gap:4px;">
+            <span>Bonus earned:</span>
+            <strong style="color:var(--emerald);" id="referral-bonus-display">+0</strong>
+          </div>
+        </div>
+      </div>
+
+      <!-- Settings -->
+      <div class="settings-section">
+        <div class="settings-item" id="setting-notifications"><div class="settings-item-icon" style="background:rgba(99,102,241,0.14)">🔔</div><div class="settings-item-info"><div class="settings-item-label">Notifications</div><div class="settings-item-sub">Processing alerts</div></div><span class="settings-item-arrow">›</span></div>
+        <div class="settings-item" id="setting-quality"><div class="settings-item-icon" style="background:rgba(16,185,129,0.14)">⚙️</div><div class="settings-item-info"><div class="settings-item-label">Default Quality</div><div class="settings-item-sub" id="setting-quality-sub">Auto</div></div><span class="settings-item-arrow">›</span></div>
+        <div class="settings-item" id="setting-theme"><div class="settings-item-icon" style="background:rgba(245,158,11,0.14)">🎨</div><div class="settings-item-info"><div class="settings-item-label">Appearance</div><div class="settings-item-sub" id="setting-theme-sub">Dark Mode</div></div><span class="settings-item-arrow">›</span></div>
+        <div class="settings-item" id="setting-export"><div class="settings-item-icon" style="background:rgba(34,211,238,0.14)">📦</div><div class="settings-item-info"><div class="settings-item-label">Export Data</div><div class="settings-item-sub">Download your history as JSON</div></div><span class="settings-item-arrow">›</span></div>
+        <div class="settings-item" id="setting-logout" style="color:var(--rose);"><div class="settings-item-icon" style="background:rgba(244,63,94,0.1)">🚪</div><div class="settings-item-info"><div class="settings-item-label" style="color:var(--rose)">Sign Out</div><div class="settings-item-sub">Exit the app</div></div></div>
+      </div>
+      <p class="caption" style="text-align:center;margin-top:22px;">Premium Video Hub v3.0<br>Powered by Telegram Mini Apps</p>
+    </div>
+
+    <!-- Bottom Nav (5 tabs) -->
+    <nav class="bottom-nav">
+      <button class="nav-item active" data-page="home">     <span class="nav-item-icon">🏠</span><span class="nav-item-label">Home</span></button>
+      <button class="nav-item" data-page="download">        <span class="nav-item-icon">⬇️</span><span class="nav-item-label">Download</span></button>
+      <button class="nav-item" data-page="upload">          <span class="nav-item-icon">➕</span><span class="nav-item-label">Upload</span></button>
+      <button class="nav-item" data-page="trending">        <span class="nav-item-icon">📈</span><span class="nav-item-label">Trending</span></button>
+      <button class="nav-item" data-page="profile">         <span class="nav-item-icon">👤</span><span class="nav-item-label">Profile</span></button>
+    </nav>
+  </div>
+
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- Video Detail Modal -->
+  <div class="modal-backdrop" id="video-modal">
+    <div class="modal"><div class="modal-handle"></div><div id="modal-content"></div></div>
+  </div>
+
+  <!-- Upgrade Modal -->
+  <div class="modal-backdrop" id="upgrade-modal">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <div style="text-align:center;margin-bottom:20px;">
+        <div style="font-size:46px;margin-bottom:10px;">✦</div>
+        <h2 class="h2" style="margin-bottom:8px;">Go Premium</h2>
+        <p class="body">Unlock 4K, playlists, unlimited downloads & more.</p>
+      </div>
+      <div class="gap-10" style="gap:10px;display:flex;flex-direction:column;">
+        <div class="card card-glass" style="display:flex;align-items:center;gap:12px;"><div style="font-size:22px;">♾️</div><div><div style="font-size:13px;font-weight:600;">Unlimited Downloads</div><div class="caption mt-4">No monthly caps</div></div></div>
+        <div class="card card-glass" style="display:flex;align-items:center;gap:12px;"><div style="font-size:22px;">🎬</div><div><div style="font-size:13px;font-weight:600;">4K Ultra HD Export</div><div class="caption mt-4">Maximum quality</div></div></div>
+        <div class="card card-glass" style="display:flex;align-items:center;gap:12px;"><div style="font-size:22px;">📋</div><div><div style="font-size:13px;font-weight:600;">Playlist Downloads</div><div class="caption mt-4">Full YouTube playlists</div></div></div>
+        <div class="card card-glass" style="display:flex;align-items:center;gap:12px;"><div style="font-size:22px;">🤖</div><div><div style="font-size:13px;font-weight:600;">AI Subtitles & Analysis</div><div class="caption mt-4">Powered by Claude AI</div></div></div>
+      </div>
+      <button class="btn btn-primary btn-full btn-lg mt-16" id="confirm-upgrade-btn">Upgrade — $4.99/mo</button>
+      <button class="btn btn-ghost btn-full mt-8" onclick="App.closeModal('upgrade-modal')">Maybe later</button>
+    </div>
+  </div>
+
+  <script>
+  // ═══════════════════════════════════════════════════════════
+  //  Premium Video Hub v3.0  —  Full Logic
+  //  New: AI URL analyzer, Leaderboard, Referral, Trending,
+  //       Daily quota display, Streak, Confetti, Export data
+  // ═══════════════════════════════════════════════════════════
+
+  // ── 1. Telegram WebApp ──────────────────────────────────────
+  const TG = (() => {
+    const twa = window.Telegram?.WebApp;
+    function init() {
+      if (!twa) { console.warn('[TG] Fallback mode'); return; }
+      twa.ready(); twa.expand(); twa.enableClosingConfirmation();
+      if (twa.colorScheme === 'light') { document.documentElement.setAttribute('data-theme','light'); State.theme='light'; }
+    }
+    function getUser() {
+      if (!twa) return _mock();
+      const u = twa.initDataUnsafe?.user;
+      if (!u) return _mock();
+      return { id:u.id, first_name:u.first_name||'', last_name:u.last_name||'', username:u.username||'', photo_url:u.photo_url||'', language:u.language_code||'en', is_premium:u.is_premium||false };
+    }
+    function _mock() { return { id:999999, first_name:'Demo', last_name:'User', username:'demo_user', photo_url:'', language:'en', is_premium:false }; }
+    function haptic(type='impact', style='light') {
+      try {
+        if(type==='impact')       twa?.HapticFeedback?.impactOccurred(style);
+        if(type==='notification') twa?.HapticFeedback?.notificationOccurred(style);
+        if(type==='selection')    twa?.HapticFeedback?.selectionChanged();
+      } catch {}
+    }
+    function openLink(url) { if(twa) twa.openLink(url); else window.open(url,'_blank'); }
+    function hideMainButton() { twa?.MainButton?.hide(); }
+    return { init, getUser, haptic, openLink, hideMainButton };
+  })();
+
+  // ── 2. Platform definitions ─────────────────────────────────
+  const PLATFORMS = {
+    youtube     : { re:/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/(?:watch\?v=|shorts\/|playlist)|youtu\.be\/)[\w-]+/i, icon:'🔴', name:'YouTube',     color:'#ff4444', maxQ:'4K'  },
+    tiktok      : { re:/(?:https?:\/\/)?(?:www\.)?(?:vm\.tiktok\.com|tiktok\.com)\/.+/i,                               icon:'🎵', name:'TikTok',      color:'#69c9d0', maxQ:'1080'},
+    instagram   : { re:/(?:https?:\/\/)?(?:www\.)?instagram\.com\/(?:p|reel|tv)\/.+/i,                                 icon:'📸', name:'Instagram',   color:'#e4405f', maxQ:'1080'},
+    facebook    : { re:/(?:https?:\/\/)?(?:www\.)?(?:facebook\.com|fb\.watch)\/.+/i,                                   icon:'📘', name:'Facebook',    color:'#1877f2', maxQ:'720' },
+    twitter     : { re:/(?:https?:\/\/)?(?:www\.)?(?:twitter\.com|x\.com)\/\w+\/status\/\d+/i,                         icon:'🐦', name:'Twitter/X',   color:'#1da1f2', maxQ:'1080'},
+    vimeo       : { re:/(?:https?:\/\/)?(?:www\.)?vimeo\.com\/\d+/i,                                                   icon:'🎬', name:'Vimeo',       color:'#1ab7ea', maxQ:'4K'  },
+    pinterest   : { re:/(?:https?:\/\/)?(?:www\.)?pinterest\.com\/pin\/.+/i,                                           icon:'📌', name:'Pinterest',   color:'#e60023', maxQ:'720' },
+    dailymotion : { re:/(?:https?:\/\/)?(?:www\.)?dailymotion\.com\/video\/.+/i,                                       icon:'📹', name:'Dailymotion', color:'#00aaff', maxQ:'720' },
+    twitch      : { re:/(?:https?:\/\/)?(?:www\.)?twitch\.tv\/(?:videos\/\d+|clip\/.+)/i,                              icon:'💜', name:'Twitch',      color:'#9146ff', maxQ:'1080'},
+    reddit      : { re:/(?:https?:\/\/)?(?:www\.)?reddit\.com\/r\/.+\/comments\/.+/i,                                  icon:'🤖', name:'Reddit',      color:'#ff4500', maxQ:'720' },
+  };
+  function detectPlatform(url) {
+    for(const [k,d] of Object.entries(PLATFORMS)) if(d.re.test(url)) return k;
+    return null;
+  }
+
+  // ── 3. State ────────────────────────────────────────────────
+  const State = {
+    user        : null,
+    videos      : _ls('pvh_videos', []),
+    dlHistory   : _ls('pvh_dlhistory', []),
+    theme       : document.documentElement.getAttribute('data-theme')||'dark',
+    filters     : { status:'all', platform:'all', search:'' },
+    upload      : { files:[] },
+    download    : { url:'', platform:null, quality:null, format:'mp4' },
+    platformStats: _ls('pvh_platformstats', {}),
+    leaderboard : _ls('pvh_leaderboard', []),
+    streakDays  : _ls('pvh_streak', 0),
+    lastStreakDate: _ls('pvh_streakdate', ''),
+    dailyCount  : _ls('pvh_dailycount', 0),
+    dailyDate   : _ls('pvh_dailydate', ''),
+    referralCode: _ls('pvh_refcode', _genCode()),
+    referralBonus: _ls('pvh_refbonus', 0),
+    plan        : _ls('pvh_plan', 'free'),
+
+    get totalVideos()     { return this.videos.length; },
+    get completedVideos() { return this.videos.filter(v=>v.status==='completed').length; },
+    get totalDownloads()  { return this.dlHistory.length; },
+    get usedStorage()     { return _fmtBytes(this.videos.reduce((s,v)=>s+(v.size||0),0)); },
+  };
+
+  function _ls(k, def) { try { const v=localStorage.getItem(k); return v!=null ? JSON.parse(v) : def; } catch { return def; } }
+  function _ss(k,v)    { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+  function _genCode()  { const c='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'; return Array.from({length:8},()=>c[Math.floor(Math.random()*c.length)]).join(''); }
+  function _fmtBytes(b){ if(!b)return'0 MB'; if(b<1048576)return(b/1024).toFixed(1)+' KB'; if(b<1073741824)return(b/1048576).toFixed(1)+' MB'; return(b/1073741824).toFixed(2)+' GB'; }
+  function _fmtDur(s)  { const m=Math.floor(s/60); return `${m}:${String(s%60).padStart(2,'0')}`; }
+  function _timeAgo(ts){ const d=Date.now()-ts,m=60000,h=3600000,dy=86400000; if(d<m)return'just now'; if(d<h)return Math.floor(d/m)+'m ago'; if(d<dy)return Math.floor(d/h)+'h ago'; return Math.floor(d/dy)+'d ago'; }
+  function _today()    { return new Date().toISOString().slice(0,10); }
+  function _planLimit(plan){ return {free:10,pro:100,elite:Infinity,vip:Infinity}[plan]||10; }
+  function _badge(n)   { if(n>=500)return'💎 Diamond'; if(n>=100)return'🥇 Gold'; if(n>=30)return'🥈 Silver'; if(n>=5)return'🥉 Bronze'; return'🌱 Starter'; }
+
+  function _saveAll() {
+    _ss('pvh_videos',       State.videos);
+    _ss('pvh_dlhistory',    State.dlHistory);
+    _ss('pvh_platformstats',State.platformStats);
+    _ss('pvh_leaderboard',  State.leaderboard);
+    _ss('pvh_streak',       State.streakDays);
+    _ss('pvh_streakdate',   State.lastStreakDate);
+    _ss('pvh_dailycount',   State.dailyCount);
+    _ss('pvh_dailydate',    State.dailyDate);
+    _ss('pvh_refcode',      State.referralCode);
+    _ss('pvh_refbonus',     State.referralBonus);
+    _ss('pvh_plan',         State.plan);
+  }
+
+  // ── 4. Toast ────────────────────────────────────────────────
+  const Toast = {
+    show(msg, type='info', dur=3200) {
+      const icons={success:'✅',error:'❌',info:'ℹ️',warning:'⚠️'};
+      const el=document.createElement('div');
+      el.className=`toast toast-${type}`;
+      el.innerHTML=`<span>${icons[type]||'ℹ️'}</span><span>${msg}</span>`;
+      document.getElementById('toast-container').appendChild(el);
+      TG.haptic('notification',type==='error'?'error':type==='success'?'success':'warning');
+      setTimeout(()=>{ el.classList.add('removing'); el.addEventListener('animationend',()=>el.remove()); },dur);
+    },
+  };
+
+  // ── 5. Confetti ─────────────────────────────────────────────
+  function launchConfetti() {
+    const colors=['#6366f1','#8b5cf6','#22d3ee','#10b981','#f59e0b','#f43f5e','#ec4899'];
+    for(let i=0;i<40;i++){
+      const p=document.createElement('div');
+      p.className='confetti-particle';
+      const size=Math.random()*8+4;
+      p.style.cssText=`left:${Math.random()*100}vw;width:${size}px;height:${size}px;background:${colors[i%colors.length]};animation-duration:${Math.random()*1.5+1}s;animation-delay:${Math.random()*0.5}s;`;
+      document.body.appendChild(p);
+      setTimeout(()=>p.remove(),2500);
+    }
+  }
+
+  // ── 6. Navigation ────────────────────────────────────────────
+  const App = {
+    currentPage:'home',
+    nav(page){
+      document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+      document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+      document.getElementById(`page-${page}`)?.classList.add('active');
+      document.querySelector(`.nav-item[data-page="${page}"]`)?.classList.add('active');
+      this.currentPage=page;
+      TG.haptic('selection');
+      if(page==='home')     UI.renderHome();
+      if(page==='library')  UI.renderLibrary();
+      if(page==='profile')  UI.renderProfile();
+      if(page==='upload')   Upload.resetUI();
+      if(page==='trending') UI.renderTrending();
+      TG.hideMainButton();
+      window.scrollTo({top:0,behavior:'smooth'});
+    },
+    openModal(id)  { document.getElementById(id)?.classList.add('active'); },
+    closeModal(id) { document.getElementById(id)?.classList.remove('active'); },
+  };
+
+  // ── 7. UI Rendering ──────────────────────────────────────────
+  const UI = {
+    greeting(){ const h=new Date().getHours(); if(h<12)return'Good morning 👋'; if(h<17)return'Good afternoon 👋'; return'Good evening 👋'; },
+
+    renderUser(){
+      const u=State.user; if(!u)return;
+      const initials=(u.first_name?.[0]||'')+(u.last_name?.[0]||u.first_name?.[1]||'');
+      document.getElementById('avatar-initials').textContent=initials.toUpperCase()||'👤';
+      document.getElementById('hero-name').textContent=u.first_name||'Creator';
+      document.getElementById('greeting-text').textContent=this.greeting();
+      document.getElementById('plan-badge').textContent=State.plan!=='free'?`✦ ${State.plan.charAt(0).toUpperCase()+State.plan.slice(1)}`:'✦ Free';
+      if(u.photo_url){ const img=document.createElement('img'); img.src=u.photo_url; const av=document.getElementById('user-avatar'); av.innerHTML=''; av.appendChild(img); }
+    },
+
+    renderHome(){
+      document.getElementById('stat-total').textContent    =State.totalVideos;
+      document.getElementById('stat-done').textContent     =State.completedVideos;
+      document.getElementById('stat-downloads').textContent=State.totalDownloads;
+      document.getElementById('stat-storage').textContent  =State.usedStorage;
+      // Streak
+      const s=State.streakDays||0;
+      document.getElementById('streak-count').textContent=s;
+      document.getElementById('streak-desc').textContent=s>0?`${s}-day streak! Keep going 💪`:'Download something to start your streak!';
+      // Recent videos
+      const recent=[...State.videos].sort((a,b)=>b.createdAt-a.createdAt).slice(0,3);
+      const list=document.getElementById('recent-videos-list');
+      if(recent.length===0){
+        list.innerHTML=`<div class="empty-state"><div class="empty-icon">🎬</div><div class="h3">No videos yet</div><p class="body mt-8">Download or upload your first video.</p></div>`;
+      } else {
+        list.innerHTML=recent.map(v=>this._videoCard(v)).join('');
+      }
+    },
+
+    _videoCard(v){
+      const p=PLATFORMS[v.platform];
+      const statusColors={completed:'emerald',processing:'indigo-2',queued:'amber',failed:'rose'};
+      const sColor=statusColors[v.status]||'text-2';
+      return `<div class="video-card" onclick="UI.openVideoModal('${v.id}')">
+        <div class="video-thumb">${p?p.icon:'🎬'}<div class="video-thumb-overlay"></div>${v.duration?`<div class="video-duration">${_fmtDur(v.duration)}</div>`:''}${p?`<div class="video-platform-badge">${p.icon} ${p.name}</div>`:''}
+        </div>
+        <div class="video-card-body">
+          <div class="video-card-title">${v.name}</div>
+          <div class="video-card-meta">
+            <span class="status-badge status-${v.status}"><span class="status-dot"></span>${v.status}</span>
+            <span class="caption">${_timeAgo(v.createdAt)}</span>
+          </div>
+        </div>
+      </div>`;
+    },
+
+    renderLibrary(){
+      const {status,platform,search}=State.filters;
+      let list=[...State.videos].sort((a,b)=>b.createdAt-a.createdAt);
+      if(status!=='all')    list=list.filter(v=>v.status===status);
+      if(platform!=='all')  list=list.filter(v=>platform==='upload'?(v.platform==null):(v.platform===platform));
+      if(search)            list=list.filter(v=>v.name?.toLowerCase().includes(search.toLowerCase()));
+      const el=document.getElementById('library-list');
+      if(list.length===0){
+        el.innerHTML=`<div class="empty-state"><div class="empty-icon">🔍</div><p class="body">No videos match your filter.</p></div>`;
+      } else {
+        el.innerHTML=list.map(v=>this._videoCard(v)).join('');
+      }
+    },
+
+    renderTrending(){
+      // Platform stats
+      const stats=State.platformStats;
+      const sorted=Object.entries(stats).sort((a,b)=>b[1]-a[1]);
+      const total=sorted.reduce((s,[,v])=>s+v,0)||1;
+      const tEl=document.getElementById('trending-list');
+      if(sorted.length===0||total===0){
+        tEl.innerHTML=`<div class="empty-state" style="padding:24px;"><div class="empty-icon">📊</div><p class="body">No downloads recorded yet.</p></div>`;
+      } else {
+        tEl.innerHTML=sorted.map(([p,n])=>{
+          const def=PLATFORMS[p]; if(!def)return'';
+          const pct=((n/total)*100).toFixed(0);
+          const color=def.color||'var(--indigo)';
+          return `<div class="trend-row">
+            <div class="trend-platform">${def.icon}</div>
+            <div class="trend-info">
+              <div class="trend-name">${def.name}</div>
+              <div class="trend-bar-wrap mini-bar-wrap mt-4">
+                <div class="mini-bar" style="width:${pct}%;background:${color};"></div>
+              </div>
+            </div>
+            <div class="trend-count">${n}</div>
+          </div>`;
+        }).join('');
+      }
+      // Leaderboard
+      const lb=State.leaderboard;
+      const lbEl=document.getElementById('leaderboard-list');
+      if(lb.length===0){
+        lbEl.innerHTML=`<div class="empty-state" style="padding:24px;"><div class="empty-icon">🏆</div><p class="body">Be the first on the leaderboard!</p></div>`;
+      } else {
+        const medals=['🥇','🥈','🥉'];
+        lbEl.innerHTML=lb.map((e,i)=>`
+          <div class="lb-item">
+            <div class="lb-rank">${medals[i]||i+1}</div>
+            <div class="lb-avatar">${(e.name||'?')[0].toUpperCase()}</div>
+            <div class="lb-info">
+              <div class="lb-name">${e.name}</div>
+              <div class="lb-badge">${_badge(e.count)}</div>
+            </div>
+            <div class="lb-count">${e.count} ⬇️</div>
+          </div>`).join('');
+      }
+    },
+
+    renderProfile(){
+      const u=State.user; if(!u)return;
+      const initials=(u.first_name?.[0]||'')+(u.last_name?.[0]||'');
+      document.getElementById('profile-initials').textContent=initials.toUpperCase()||'👤';
+      document.getElementById('profile-name-display').textContent=`${u.first_name} ${u.last_name}`.trim();
+      document.getElementById('profile-handle-display').textContent=u.username?`@${u.username}`:'';
+      document.getElementById('profile-badge-display').innerHTML=`<span class="status-badge status-completed" style="display:inline-flex;">${_badge(State.totalDownloads)}</span>`;
+      if(u.photo_url){ const img=document.createElement('img'); img.src=u.photo_url; const av=document.getElementById('profile-avatar-display'); av.innerHTML=''; av.appendChild(img); }
+      document.getElementById('prof-videos').textContent=State.totalVideos;
+      document.getElementById('prof-downloads').textContent=State.totalDownloads;
+      document.getElementById('prof-streak').textContent=State.streakDays||0;
+      const planNames={free:'Free Plan',pro:'Pro Plan',elite:'Elite Plan',vip:'VIP Plan'};
+      document.getElementById('plan-name-profile').textContent=planNames[State.plan]||'Free Plan';
+      // Referral
+      document.getElementById('referral-code-display').textContent=State.referralCode;
+      document.getElementById('referral-bonus-display').textContent=`+${State.referralBonus||0}`;
+    },
+
+    refreshDlHistory(){
+      const el=document.getElementById('dl-history-list');
+      if(State.dlHistory.length===0){
+        el.innerHTML=`<div class="empty-state" style="padding:22px;"><div class="empty-icon" style="font-size:34px;">📭</div><p class="body" style="margin-top:6px;">No downloads yet</p></div>`;
+        return;
+      }
+      el.innerHTML=State.dlHistory.slice(0,10).map(h=>{
+        const p=PLATFORMS[h.platform];
+        return `<div class="file-item">
+          <div class="file-item-icon">${p?p.icon:'🎬'}</div>
+          <div class="file-item-info"><div class="file-item-name">${p?p.name:'Unknown'} · ${h.quality}</div><div class="file-item-size">${h.date?new Date(h.date).toLocaleDateString():''}</div></div>
+          <span class="status-badge status-completed" style="font-size:11px;">✓</span>
+        </div>`;
+      }).join('');
+    },
+
+    openVideoModal(id){
+      const v=State.videos.find(x=>x.id===id); if(!v)return;
+      const p=PLATFORMS[v.platform];
+      document.getElementById('modal-content').innerHTML=`
+        <div style="text-align:center;margin-bottom:18px;"><div style="font-size:48px;">${p?p.icon:'🎬'}</div><div class="h3 mt-8">${v.name}</div><div class="caption mt-4">${p?p.name:'Uploaded'} · ${v.quality||'Auto'}</div></div>
+        <div class="gap-8">
+          <div class="flex-between"><span class="caption">Size</span><span style="font-size:13px;font-weight:500;">${_fmtBytes(v.size)}</span></div>
+          <div class="flex-between"><span class="caption">Duration</span><span style="font-size:13px;font-weight:500;">${v.duration?_fmtDur(v.duration):'–'}</span></div>
+          <div class="flex-between"><span class="caption">Status</span><span class="status-badge status-${v.status}">${v.status}</span></div>
+          <div class="flex-between"><span class="caption">Added</span><span style="font-size:13px;">${new Date(v.createdAt).toLocaleDateString()}</span></div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:18px;">
+          <button class="btn btn-primary" style="flex:1;" onclick="Toast.show('Download feature requires backend integration.','info')">⬇️ Download</button>
+          <button class="btn btn-danger btn-sm" onclick="Library.deleteVideo('${v.id}');App.closeModal('video-modal');">🗑️</button>
+        </div>`;
+      App.openModal('video-modal');
+    },
+  };
+
+  // ── 8. Download logic ────────────────────────────────────────
+  const QUALITIES = ['4K Ultra HD', '1080p HD', '720p', '480p', 'MP3 Audio'];
+  const QUALITY_ICONS = {'4K Ultra HD':'👑','1080p HD':'🎬','720p':'📺','480p':'📱','MP3 Audio':'🎵'};
+  const QUALITY_PLANS = {'4K Ultra HD':['elite','vip'],'1080p HD':['pro','elite','vip']};
+
+  const Download = {
+    onUrlInput(val){
+      const url=val.trim();
+      const platform=url?detectPlatform(url):null;
+      State.download.url=url;
+      State.download.platform=platform;
+      const hint=document.getElementById('quick-platform-hint');
+
+      if(platform){
+        const def=PLATFORMS[platform];
+        document.getElementById('platform-detected').style.display='flex';
+        document.getElementById('detected-icon').textContent=def.icon;
+        document.getElementById('detected-name').textContent=def.name;
+        // Show AI analysis
+        document.getElementById('ai-analysis').style.display='block';
+        document.getElementById('ai-loading').textContent='Analyzing…';
+        document.getElementById('ai-analysis-text').textContent='Detecting content type and best quality options…';
+        this._runAI(url, platform);
+        this._renderQualityGrid(platform);
+        document.getElementById('quality-section').style.display='block';
+        document.getElementById('format-section').style.display='block';
+        document.getElementById('start-download-btn').disabled=false;
+        if(hint) hint.textContent='';
+      } else {
+        document.getElementById('platform-detected').style.display='none';
+        document.getElementById('ai-analysis').style.display='none';
+        document.getElementById('quality-section').style.display='none';
+        document.getElementById('format-section').style.display='none';
+        document.getElementById('start-download-btn').disabled=true;
+        if(hint && url.length>5) hint.textContent='⚠️ Platform not recognized';
+      }
+    },
+
+    _renderQualityGrid(platform){
+      const def=PLATFORMS[platform];
+      const grid=document.getElementById('quality-grid');
+      const today=_today();
+      if(State.dailyDate!==today){ State.dailyCount=0; State.dailyDate=today; _saveAll(); }
+      const limit=_planLimit(State.plan);
+      const remaining=limit===Infinity?'∞':Math.max(0,limit-State.dailyCount);
+      document.getElementById('quota-label').textContent=`Remaining today: ${remaining}`;
+      grid.innerHTML=QUALITIES.map(q=>{
+        const reqPlans=QUALITY_PLANS[q];
+        const locked=reqPlans&&!reqPlans.includes(State.plan);
+        const active=State.download.quality===q;
+        return `<button class="btn ${active?'btn-primary':'btn-secondary'}" style="font-size:13px;${locked?'opacity:0.5;':''}" onclick="Download.selectQuality('${q}')" ${locked?'':''}>${QUALITY_ICONS[q]||'📊'} ${q}${locked?'🔒':''}</button>`;
+      }).join('');
+    },
+
+    selectQuality(q){
+      const reqPlans=QUALITY_PLANS[q];
+      if(reqPlans&&!reqPlans.includes(State.plan)){
+        Toast.show(`${q} requires ${reqPlans[0]} plan or higher.`,'warning');
+        App.openModal('upgrade-modal');
+        return;
+      }
+      State.download.quality=q;
+      TG.haptic('selection');
+      this._renderQualityGrid(State.download.platform);
+    },
+
+    setFormat(fmt){
+      State.download.format=fmt;
+      ['mp4','mp3','webm'].forEach(f=>{
+        document.getElementById(`fmt-${f}`)?.classList.toggle('btn-primary',f===fmt);
+        document.getElementById(`fmt-${f}`)?.classList.toggle('btn-secondary',f!==fmt);
+      });
+    },
+
+    async _runAI(url, platform){
+      // Uses Anthropic API to analyze the URL
+      try {
+        const def=PLATFORMS[platform];
+        const prompt=`You are a helpful video download assistant. The user wants to download from: ${url} (Platform: ${def?.name||platform}). In 1-2 short sentences, suggest the best quality option and approximate file size. Be concise and helpful. Do not mention any download tools.`;
+        const res=await fetch('https://api.anthropic.com/v1/messages',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({
+            model:'claude-sonnet-4-20250514',
+            max_tokens:1000,
+            messages:[{role:'user',content:prompt}]
+          })
+        });
+        if(!res.ok) throw new Error('API error');
+        const data=await res.json();
+        const text=data.content?.map(c=>c.text||'').join('')||'';
+        document.getElementById('ai-analysis-text').textContent=text||`${def?.name} video detected. Choose your preferred quality below.`;
+        document.getElementById('ai-loading').textContent='✓ Done';
+      } catch {
+        document.getElementById('ai-analysis-text').textContent=`${PLATFORMS[platform]?.name||'Video'} detected. Select quality and format to download.`;
+        document.getElementById('ai-loading').textContent='';
+      }
+    },
+
+    async startDownload(){
+      const {url,platform,quality,format}=State.download;
+      if(!url||!platform){ Toast.show('Please enter a valid URL','error'); return; }
+      if(!quality){ Toast.show('Please select a quality','warning'); return; }
+
+      const today=_today();
+      if(State.dailyDate!==today){ State.dailyCount=0; State.dailyDate=today; }
+      const limit=_planLimit(State.plan);
+      if(limit!==Infinity&&State.dailyCount>=limit){
+        Toast.show(`Daily limit of ${limit} downloads reached. Upgrade for more!`,'warning');
+        App.openModal('upgrade-modal');
+        return;
+      }
+
+      TG.haptic('impact','heavy');
+      document.getElementById('start-download-btn').disabled=true;
+      document.getElementById('dl-progress-wrap').style.display='block';
+      document.getElementById('dl-progress-title').textContent=`Downloading ${PLATFORMS[platform]?.name}…`;
+
+      // Simulate progress
+      for(let p=0;p<=100;p+=Math.floor(Math.random()*15)+5){
+        if(p>100)p=100;
+        document.getElementById('dl-progress-bar').style.width=`${p}%`;
+        document.getElementById('dl-progress-pct').textContent=`${p}%`;
+        const eta=p<100?Math.round(((100-p)/20))+'s':'Done!';
+        document.getElementById('dl-eta').textContent=eta;
+        await _sleep(Math.random()*400+200);
+        if(p===100)break;
+      }
+
+      // Record
+      State.dailyCount++;
+      State.dlHistory.unshift({ url, platform, quality, format, date:new Date().toISOString() });
+      if(State.dlHistory.length>50) State.dlHistory.pop();
+
+      // Platform stats
+      State.platformStats[platform]=(State.platformStats[platform]||0)+1;
+
+      // Update leaderboard
+      const uName=State.user?.first_name||'You';
+      const existing=State.leaderboard.find(e=>e.id===State.user?.id);
+      if(existing){ existing.count++; } else { State.leaderboard.push({id:State.user?.id,name:uName,count:1}); }
+      State.leaderboard.sort((a,b)=>b.count-a.count);
+      State.leaderboard=State.leaderboard.slice(0,10);
+
+      // Streak
+      const yesterday=new Date(Date.now()-86400000).toISOString().slice(0,10);
+      if(State.lastStreakDate===today){ /* same day, no change */ }
+      else if(State.lastStreakDate===yesterday){ State.streakDays=(State.streakDays||0)+1; }
+      else { State.streakDays=1; }
+      State.lastStreakDate=today;
+
+      _saveAll();
+
+      document.getElementById('dl-progress-wrap').style.display='none';
+      document.getElementById('start-download-btn').disabled=false;
+
+      // Add video to library
+      const videoId='v_'+Date.now();
+      State.videos.unshift({ id:videoId, name:`${PLATFORMS[platform]?.name}_${Date.now()}.${format}`, size:Math.random()*500*1024*1024, status:'completed', format, quality, platform, createdAt:Date.now(), duration:Math.floor(Math.random()*600+30) });
+      _saveAll();
+
+      launchConfetti();
+      Toast.show(`✅ Download complete! ${quality}`, 'success', 4000);
+
+      // Streak milestone
+      const streak=State.streakDays;
+      if(streak>0&&streak%7===0) Toast.show(`🔥 ${streak}-day streak! Amazing!`,'success',5000);
+      this.refreshHistory();
+    },
+
+    refreshHistory(){ UI.refreshDlHistory(); },
+    clearHistory(){ State.dlHistory=[]; _saveAll(); this.refreshHistory(); Toast.show('History cleared','info'); },
+  };
+
+  function _sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+
+  // ── 9. Library ───────────────────────────────────────────────
+  const Library = {
+    deleteVideo(id){
+      State.videos=State.videos.filter(v=>v.id!==id);
+      _saveAll();
+      UI.renderLibrary();
+      Toast.show('Video deleted','info');
+    },
+  };
+
+  // ── 10. Upload ───────────────────────────────────────────────
+  const Upload = {
+    addFiles(files){
+      for(const f of files){
+        if(f.size>2*1024*1024*1024){ Toast.show(`${f.name} exceeds 2 GB limit`,'error'); continue; }
+        State.upload.files.push(f);
+      }
+      this.renderQueue();
+    },
+    renderQueue(){
+      const wrap=document.getElementById('file-queue-wrap');
+      const optWrap=document.getElementById('process-options-wrap');
+      const startBtn=document.getElementById('start-upload-btn');
+      const list=document.getElementById('file-queue-list');
+      if(State.upload.files.length===0){ wrap.style.display='none'; optWrap.style.display='none'; return; }
+      wrap.style.display='block'; optWrap.style.display='block'; startBtn.disabled=false;
+      list.innerHTML=State.upload.files.map((f,i)=>`
+        <div class="file-item">
+          <div class="file-item-icon">🎬</div>
+          <div class="file-item-info"><div class="file-item-name">${f.name}</div><div class="file-item-size">${_fmtBytes(f.size)}</div></div>
+          <span class="file-item-remove" onclick="Upload.removeFile(${i})">✕</span>
+        </div>`).join('');
+    },
+    removeFile(i){ State.upload.files.splice(i,1); this.renderQueue(); },
+    async startProcessing(){
+      if(!State.upload.files.length) return;
+      TG.haptic('impact','heavy');
+      document.getElementById('start-upload-btn').disabled=true;
+      Toast.show('Processing files…','info');
+      for(const f of State.upload.files){
+        const id='u_'+Date.now();
+        State.videos.unshift({ id, name:f.name, size:f.size, status:'processing', format:document.getElementById('opt-format').value, quality:document.getElementById('opt-quality').value, platform:null, createdAt:Date.now(), duration:null });
+        _saveAll();
+        await _sleep(1500+Math.random()*1000);
+        const v=State.videos.find(x=>x.id===id);
+        if(v){ v.status='completed'; v.duration=Math.floor(Math.random()*300+30); }
+        _saveAll();
+      }
+      State.upload.files=[];
+      document.getElementById('file-input').value='';
+      this.renderQueue();
+      launchConfetti();
+      Toast.show(`✅ All files processed!`,'success');
+      App.nav('library');
+    },
+    resetUI(){ document.getElementById('file-queue-wrap').style.display='none'; document.getElementById('process-options-wrap').style.display='none'; },
+  };
+
+  // ── 11. Theme toggle ─────────────────────────────────────────
+  function toggleTheme(){
+    const next=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';
+    document.documentElement.setAttribute('data-theme',next);
+    State.theme=next;
+    document.getElementById('theme-toggle').textContent=next==='dark'?'🌙':'☀️';
+    document.getElementById('setting-theme-sub').textContent=next==='dark'?'Dark Mode':'Light Mode';
+    TG.haptic('selection');
+  }
+
+  // ── 12. Filters ───────────────────────────────────────────────
+  function initFilters(){
+    document.querySelectorAll('#filter-chips .chip').forEach(c=>{
+      c.addEventListener('click',()=>{
+        document.querySelectorAll('#filter-chips .chip').forEach(x=>x.classList.remove('active'));
+        c.classList.add('active'); State.filters.status=c.dataset.filter; UI.renderLibrary(); TG.haptic('selection');
+      });
+    });
+    document.querySelectorAll('#platform-chips .chip').forEach(c=>{
+      c.addEventListener('click',()=>{
+        document.querySelectorAll('#platform-chips .chip').forEach(x=>x.classList.remove('active'));
+        c.classList.add('active'); State.filters.platform=c.dataset.platform; UI.renderLibrary(); TG.haptic('selection');
+      });
+    });
+    document.getElementById('library-search-btn').addEventListener('click',()=>{
+      const w=document.getElementById('library-search-wrap');
+      w.style.display=w.style.display==='none'?'block':'none';
+    });
+    document.getElementById('library-search-input').addEventListener('input',e=>{ State.filters.search=e.target.value; UI.renderLibrary(); });
+  }
+
+  // ── 13. Download page setup ───────────────────────────────────
+  function initDownloadPage(){
+    const urlInput=document.getElementById('url-input');
+    urlInput.addEventListener('input',e=>Download.onUrlInput(e.target.value));
+    urlInput.addEventListener('paste',e=>{ setTimeout(()=>Download.onUrlInput(urlInput.value),60); });
+    document.getElementById('paste-btn').addEventListener('click',async()=>{
+      try {
+        const t=await navigator.clipboard.readText(); urlInput.value=t; Download.onUrlInput(t);
+        TG.haptic('impact','light'); Toast.show('Pasted!','success',1500);
+      } catch { Toast.show('Tap field and paste manually','info'); }
+    });
+    document.getElementById('start-download-btn').addEventListener('click',()=>Download.startDownload());
+    document.getElementById('clear-dl-history-btn').addEventListener('click',()=>{ TG.haptic('selection'); Download.clearHistory(); });
+    Download.setFormat('mp4');
+  }
+
+  // ── 14. Quick download (Home page) ───────────────────────────
+  function initQuickDownload(){
+    const input=document.getElementById('quick-url-input');
+    input.addEventListener('input',e=>{
+      const p=detectPlatform(e.target.value.trim());
+      const hint=document.getElementById('quick-platform-hint');
+      if(p) hint.innerHTML=`${PLATFORMS[p].icon} <strong>${PLATFORMS[p].name}</strong> detected`;
+      else  hint.textContent=e.target.value.length>8?'⚠️ Platform not recognized':'';
+    });
+    document.getElementById('quick-dl-btn').addEventListener('click',()=>{
+      const url=input.value.trim();
+      if(!url){ Toast.show('Enter a URL first','warning'); return; }
+      if(!detectPlatform(url)){ Toast.show('Unsupported platform','error'); return; }
+      document.getElementById('url-input').value=url;
+      Download.onUrlInput(url);
+      App.nav('download');
+    });
+  }
+
+  // ── 15. Upload zone ───────────────────────────────────────────
+  function initUploadZone(){
+    const zone=document.getElementById('upload-zone');
+    const input=document.getElementById('file-input');
+    document.getElementById('select-file-btn').addEventListener('click',e=>{e.stopPropagation();input.click();});
+    zone.addEventListener('click',()=>input.click());
+    input.addEventListener('change',e=>Upload.addFiles(e.target.files));
+    zone.addEventListener('dragover',e=>{e.preventDefault();zone.classList.add('dragover');});
+    zone.addEventListener('dragleave',()=>zone.classList.remove('dragover'));
+    zone.addEventListener('drop',e=>{e.preventDefault();zone.classList.remove('dragover');Upload.addFiles(e.dataTransfer.files);});
+    document.getElementById('clear-queue-btn').addEventListener('click',()=>{State.upload.files=[];input.value='';Upload.renderQueue();});
+    document.getElementById('start-upload-btn').addEventListener('click',()=>{TG.haptic('impact','heavy');Upload.startProcessing();});
+  }
+
+  // ── 16. Modals ────────────────────────────────────────────────
+  function initModals(){
+    document.querySelectorAll('.modal-backdrop').forEach(bd=>{
+      bd.addEventListener('click',e=>{if(e.target===bd)App.closeModal(bd.id);});
+    });
+    document.getElementById('upgrade-btn')?.addEventListener('click',()=>App.openModal('upgrade-modal'));
+    document.getElementById('confirm-upgrade-btn')?.addEventListener('click',()=>{
+      TG.openLink('https://t.me/your_bot?start=upgrade'); App.closeModal('upgrade-modal'); Toast.show('Redirecting to payment…','info');
+    });
+  }
+
+  // ── 17. Settings / Profile ────────────────────────────────────
+  function initSettings(){
+    document.getElementById('setting-theme')?.addEventListener('click',toggleTheme);
+    document.getElementById('setting-notifications')?.addEventListener('click',()=>Toast.show('Notification settings coming soon','info'));
+    document.getElementById('setting-quality')?.addEventListener('click',()=>Toast.show('Quality settings coming soon','info'));
+    document.getElementById('setting-export')?.addEventListener('click',()=>{
+      const data=JSON.stringify({videos:State.videos,downloads:State.dlHistory,stats:State.platformStats},null,2);
+      const blob=new Blob([data],{type:'application/json'});
+      const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='pvh_export.json'; a.click();
+      Toast.show('Data exported!','success');
+    });
+    document.getElementById('setting-logout')?.addEventListener('click',()=>{
+      TG.haptic('notification','warning'); Toast.show('Session ended','info');
+      setTimeout(()=>window.Telegram?.WebApp?.close(),1500);
+    });
+    document.getElementById('copy-referral-btn')?.addEventListener('click',()=>{
+      navigator.clipboard.writeText(State.referralCode).then(()=>Toast.show('Code copied!','success')).catch(()=>Toast.show('Code: '+State.referralCode,'info',5000));
+      TG.haptic('impact','medium');
+    });
+    document.getElementById('share-referral-btn')?.addEventListener('click',()=>{
+      const link=`https://t.me/YourBotUsername?start=ref_${State.referralCode}`;
+      navigator.clipboard.writeText(link).then(()=>Toast.show('Referral link copied!','success')).catch(()=>{});
+      TG.haptic('impact','light');
+    });
+  }
+
+  // ── 18. Nav ───────────────────────────────────────────────────
+  function initNav(){
+    document.querySelectorAll('.nav-item').forEach(item=>item.addEventListener('click',()=>App.nav(item.dataset.page)));
+    document.getElementById('theme-toggle').addEventListener('click',toggleTheme);
+    document.getElementById('user-avatar').addEventListener('click',()=>App.nav('profile'));
+  }
+
+  // ── 19. Demo seed ─────────────────────────────────────────────
+  function seedDemo(){
+    if(State.videos.length>0)return;
+    State.videos.push(
+      {id:'d1',name:'Product_Launch_2025.mp4',size:142*1024*1024,status:'completed',format:'mp4',quality:'1080p HD',platform:'youtube',createdAt:Date.now()-86400000*2,duration:183},
+      {id:'d2',name:'Dance_Reel_TikTok.mp4',size:22*1024*1024,status:'completed',format:'mp4',quality:'720p',platform:'tiktok',createdAt:Date.now()-86400000,duration:47},
+      {id:'d3',name:'Webinar_Q4.mp4',size:312*1024*1024,status:'processing',format:'mp4',quality:'auto',platform:null,createdAt:Date.now()-3600000,duration:null},
+    );
+    State.dlHistory.push(
+      {url:'https://www.youtube.com/watch?v=dQw4w9WgXcQ',platform:'youtube',quality:'720p',date:new Date(Date.now()-86400000).toISOString()},
+      {url:'https://www.tiktok.com/@user/video/12345',platform:'tiktok',quality:'480p',date:new Date(Date.now()-3600000).toISOString()},
+    );
+    State.platformStats={youtube:14,tiktok:9,instagram:6,twitter:3,facebook:2,vimeo:1};
+    State.leaderboard=[{id:1,name:'CoolCreator',count:47},{id:2,name:'VideoFan99',count:23},{id:3,name:'DownloadKing',count:15}];
+    State.streakDays=3; State.lastStreakDate=_today();
+    _saveAll();
+  }
+
+  // ── 20. Bootstrap ─────────────────────────────────────────────
+  async function bootstrap(){
+    TG.init();
+    State.user=TG.getUser();
+    // Check referral from URL param
+    const params=new URLSearchParams(window.location.search);
+    const ref=params.get('startapp')||params.get('ref');
+    if(ref&&!State.referralCode){ State.referralCode=_genCode(); _saveAll(); }
+    seedDemo();
+    UI.renderUser();
+    UI.renderHome();
+    UI.refreshDlHistory();
+    initNav();
+    initDownloadPage();
+    initQuickDownload();
+    initUploadZone();
+    initFilters();
+    initModals();
+    initSettings();
+    console.info('[PVH v3.0] Ready. User:', State.user);
+  }
+
+  document.addEventListener('DOMContentLoaded', bootstrap);
+  </script>
+</body>
+</html>
