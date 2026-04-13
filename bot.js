@@ -608,7 +608,7 @@ async function handleVideoUrl(msg, url, platform, quality = '720p HD') {
       });
       log(userId, 'LARGE_FILE_LINK', sizeLabel);
       // Don't delete file - let it expire naturally
-    } else {.
+    } else {
       // Send file directly via Telegram
       await bot.sendChatAction(chatId, isAudio ? 'upload_voice' : 'upload_video');
 
@@ -626,4 +626,318 @@ async function handleVideoUrl(msg, url, platform, quality = '720p HD') {
       }
 
       // Delete the progress message
-      
+      await bot.deleteMessage(chatId, statusMsg.message_id).catch(() => {});
+
+      // Cleanup temp file
+      fs.unlink(filePath, () => {});
+      log(userId, 'FILE_SENT', `${sizeLabel} | ${platform} | ${quality}`);
+    }
+
+  } catch (err) {
+    console.error(`[ERROR] handleVideoUrl | user:${userId} |`, err.message?.slice(0, 200));
+
+    // Friendly error messages
+    const errText =
+      (err.message?.includes('Private') || err.message?.includes('private'))
+        ? '🔒 *Private video*\n\nThis video cannot be downloaded (it\'s private).'
+      : (err.message?.includes('age') || err.message?.includes('age-restricted'))
+        ? '🔞 *Age-restricted video*\n\nThis video requires sign-in to access.'
+      : (err.message?.includes('not available') || err.message?.includes('unavailable'))
+        ? '🌍 *Video unavailable*\n\nThis video is not available in the server\'s region.'
+      : (err.message?.includes('Timeout') || err.message?.includes('timeout'))
+        ? '⏱️ *Timeout*\n\nThe download took too long. Try a shorter video or lower quality.'
+      : (err.message?.includes('yt-dlp not found'))
+        ? '⚙️ *Server error*\n\nyt-dlp is not installed. Contact admin.'
+      : MSG.error;
+
+    if (statusMsg) {
+      await bot.editMessageText(errText, {
+        chat_id   : chatId,
+        message_id: statusMsg.message_id,
+        parse_mode: 'Markdown',
+      }).catch(() =>
+        bot.sendMessage(chatId, errText, { parse_mode: 'Markdown' }).catch(() => {})
+      );
+    } else {
+      await bot.sendMessage(chatId, errText, { parse_mode: 'Markdown' }).catch(() => {});
+    }
+
+    // Cleanup any partial file
+    const partial = findJobFile(jobId);
+    if (partial) fs.unlink(partial, () => {});
+  }
+}
+
+// ─── Incoming message handler ─────────────────────────────────
+async function handleMessage(msg) {
+  if (!msg.text || msg.text.startsWith('/')) return;
+
+  const { id } = msg.from;
+  registerUser(msg);
+
+  if (isBanned(id)) return bot.sendMessage(id, MSG.banned, { parse_mode: 'Markdown' });
+
+  // Feedback flow
+  if (feedbackPending.has(id)) {
+    feedbackPending.delete(id);
+    store.feedback.push({ userId: id, type: 'text', text: msg.text, date: new Date().toISOString() });
+    log(id, 'FEEDBACK', msg.text.slice(0, 60));
+    if (ADMIN_ID) {
+      bot.sendMessage(ADMIN_ID,
+        `💬 *Feedback from* \`${id}\`:\n\n${msg.text}`,
+        { parse_mode: 'Markdown' }
+      ).catch(() => {});
+    }
+    return bot.sendMessage(id, MSG.feedbackOK, { parse_mode: 'Markdown' });
+  }
+
+  // Rate limit
+  if (isRateLimited(id)) {
+    log(id, 'RATE_LIMITED');
+    return bot.sendMessage(id, MSG.rateLimited, { parse_mode: 'Markdown' });
+  }
+
+  // URL detection
+  const url = extractUrl(msg.text);
+  if (!url) return bot.sendMessage(id, MSG.invalidUrl, { parse_mode: 'Markdown' });
+
+  const platform = detectPlatform(url);
+  if (!platform) {
+    log(id, 'UNSUPPORTED_URL', url);
+    return bot.sendMessage(id, MSG.invalidUrl, { parse_mode: 'Markdown' });
+  }
+
+  // Playlist check
+  if (platform === 'youtube' && isPlaylist(url)) {
+    const user = getUser(id);
+    if (user?.plan !== 'elite') {
+      return bot.sendMessage(id, MSG.playlist(url), {
+        parse_mode  : 'Markdown',
+        reply_markup: premiumKeyboard(),
+      });
+    }
+  }
+
+  // Ask quality
+  store.pendingDl.set(id, { url, platform });
+  log(id, 'ASK_QUALITY', `${platform} | ${url}`);
+  return bot.sendMessage(id, MSG.askQuality(platform, url), {
+    parse_mode  : 'Markdown',
+    reply_markup: qualityKeyboard(url, platform),
+  });
+}
+
+// ─── Callback query handler ───────────────────────────────────
+async function handleCallback(query) {
+  const { id: queryId, data, message, from } = query;
+  const chatId = message.chat.id;
+  const userId = from.id;
+
+  await bot.answerCallbackQuery(queryId);
+  log(userId, 'CALLBACK', data);
+
+  // ── Quality selection → start real download ────────────────
+  if (data.startsWith('q:')) {
+    const parts    = data.split(':');
+    const quality  = parts[1]; // e.g. '720', '1080', 'mp3', '4k'
+    const urlFrag  = parts.slice(2).join(':');
+    const pending  = store.pendingDl.get(userId);
+    const url      = pending?.url || urlFrag;
+    const platform = pending?.platform || 'unknown';
+    store.pendingDl.delete(userId);
+
+    const qualityLabels = {
+      '1080' : '1080p HD',
+      '720'  : '720p HD',
+      '480'  : '480p',
+      'mp3'  : 'MP3 Audio',
+      '4k'   : '4K Ultra HD',
+    };
+    const qualityLabel = qualityLabels[quality] || quality;
+
+    // 4K gate
+    const user = getUser(userId);
+    if (quality === '4k' && user?.plan === 'free') {
+      return bot.sendMessage(chatId,
+        `👑 *4K requires Elite plan.*\n\nUpgrade to unlock 4K downloads!`,
+        { parse_mode: 'Markdown', reply_markup: premiumKeyboard() }
+      );
+    }
+
+    // Delete quality picker message
+    await bot.deleteMessage(chatId, message.message_id).catch(() => {});
+
+    // Start real download!
+    return handleVideoUrl(
+      { chat: { id: chatId }, from: { id: userId } },
+      url, platform, qualityLabel
+    );
+  }
+
+  // ── History ────────────────────────────────────────────────
+  if (data === 'history') {
+    const user = getUser(userId);
+    return bot.sendMessage(chatId, MSG.history(user?.history || []), { parse_mode: 'Markdown' });
+  }
+
+  // ── Cancel ─────────────────────────────────────────────────
+  if (data === 'cancel') {
+    store.pendingDl.delete(userId);
+    return bot.editMessageText(MSG.cancelled, {
+      chat_id: chatId, message_id: message.message_id, parse_mode: 'Markdown',
+    }).catch(() => bot.sendMessage(chatId, MSG.cancelled, { parse_mode: 'Markdown' }));
+  }
+
+  // ── New download ───────────────────────────────────────────
+  if (data === 'new_download') {
+    return bot.sendMessage(chatId, '📎 *Send me a new video URL!*', { parse_mode: 'Markdown' });
+  }
+
+  // ── Rate the bot ───────────────────────────────────────────
+  if (data === 'rate') {
+    return bot.sendMessage(chatId, '⭐ *How would you rate this bot?*', {
+      parse_mode: 'Markdown', reply_markup: ratingKeyboard(),
+    });
+  }
+
+  if (data.startsWith('rate:')) {
+    const stars  = parseInt(data.split(':')[1]);
+    const emojis = ['😕', '😐', '🙂', '😊', '🤩'];
+    store.feedback.push({ userId, type: 'rating', stars, date: new Date().toISOString() });
+    log(userId, 'RATING', `${stars}/5`);
+    if (ADMIN_ID) {
+      bot.sendMessage(ADMIN_ID, `⭐ Rating ${stars}/5 from \`${userId}\``, { parse_mode: 'Markdown' }).catch(() => {});
+    }
+    return bot.editMessageText(
+      `${emojis[stars - 1]} *Thanks for rating ${stars}/5!*\n\nYour feedback helps us improve.`,
+      { chat_id: chatId, message_id: message.message_id, parse_mode: 'Markdown' }
+    ).catch(() => {});
+  }
+
+  // ── Premium ────────────────────────────────────────────────
+  if (['premium', 'upgrade_now', 'buy_pro', 'buy_elite'].includes(data)) {
+    await bot.sendChatAction(chatId, 'typing');
+    return bot.sendMessage(chatId, MSG.premium, {
+      parse_mode: 'Markdown', reply_markup: premiumKeyboard(),
+    });
+  }
+
+  // ── Back to start ──────────────────────────────────────────
+  if (data === 'back_start') {
+    return bot.sendMessage(chatId, MSG.welcome(from.first_name), {
+      parse_mode: 'Markdown', reply_markup: miniAppKeyboard(),
+    });
+  }
+
+  // ── Admin: Users ───────────────────────────────────────────
+  if (data === 'admin_users' && userId === ADMIN_ID) {
+    const list = [...store.users.entries()].slice(0, 15).map(([uid, u]) =>
+      `• ${u.firstName} (\`${uid}\`) — ${u.requests} dls — ${u.plan}${u.banned ? ' 🚫' : ''}`
+    ).join('\n');
+    return bot.sendMessage(chatId, `👥 *Users (top 15):*\n\n${list || 'None'}`, { parse_mode: 'Markdown' });
+  }
+
+  // ── Admin: Feedbacks ───────────────────────────────────────
+  if (data === 'admin_feedbacks' && userId === ADMIN_ID) {
+    const fbs = store.feedback.slice(-8).map((f, i) =>
+      f.type === 'rating'
+        ? `${i + 1}. ⭐${f.stars} from \`${f.userId}\``
+        : `${i + 1}. 💬 \`${f.userId}\`: ${(f.text || '').slice(0, 60)}`
+    ).join('\n');
+    return bot.sendMessage(chatId, `💬 *Recent Feedbacks:*\n\n${fbs || 'None'}`, { parse_mode: 'Markdown' });
+  }
+
+  // ── Admin: Stats ───────────────────────────────────────────
+  if (data === 'admin_stats' && userId === ADMIN_ID) {
+    const premiumN = [...store.users.values()].filter(u => u.plan !== 'free').length;
+    return bot.sendMessage(chatId, `
+📊 *Full Stats*
+
+👥 Users: ${store.users.size}
+👑 Premium: ${premiumN}
+📥 Requests: ${store.totalReq}
+💬 Feedbacks: ${store.feedback.length}
+⏰ Uptime: ${formatUptime(process.uptime())}
+    `.trim(), { parse_mode: 'Markdown' });
+  }
+
+  if (data === 'admin_broadcast_hint' && userId === ADMIN_ID) {
+    return bot.sendMessage(chatId, '📢 Use: `/broadcast Your message here`', { parse_mode: 'Markdown' });
+  }
+}
+
+// ─── Admin commands ───────────────────────────────────────────
+
+async function handleBroadcast(msg) {
+  const { id } = msg.from;
+  if (id !== ADMIN_ID) return bot.sendMessage(id, '🚫 *Unauthorized.*', { parse_mode: 'Markdown' });
+  const text = msg.text.replace('/broadcast', '').trim();
+  if (!text) return bot.sendMessage(id, '⚠️ Usage: `/broadcast <message>`', { parse_mode: 'Markdown' });
+
+  log(id, 'BROADCAST', text);
+  let sent = 0, failed = 0;
+  for (const [uid, user] of store.users) {
+    if (user.banned) continue;
+    try {
+      await bot.sendMessage(uid, `📢 *Announcement*\n\n${text}`, { parse_mode: 'Markdown' });
+      sent++;
+    } catch { failed++; }
+    await delay(50);
+  }
+  return bot.sendMessage(id, `✅ Broadcast done.\n📤 Sent: ${sent}\n❌ Failed: ${failed}`, { parse_mode: 'Markdown' });
+}
+
+async function handleBan(msg) {
+  const { id } = msg.from;
+  if (id !== ADMIN_ID) return bot.sendMessage(id, '🚫 *Unauthorized.*', { parse_mode: 'Markdown' });
+  const targetId = parseInt(msg.text.replace('/ban', '').trim());
+  if (!targetId) return bot.sendMessage(id, '⚠️ Usage: `/ban <userId>`', { parse_mode: 'Markdown' });
+  const user = store.users.get(targetId);
+  if (!user) return bot.sendMessage(id, '❌ User not found.');
+  user.banned = true;
+  log(id, 'BAN', `${targetId}`);
+  return bot.sendMessage(id, `✅ User \`${targetId}\` (*${user.firstName}*) banned.`, { parse_mode: 'Markdown' });
+}
+
+async function handleUnban(msg) {
+  const { id } = msg.from;
+  if (id !== ADMIN_ID) return bot.sendMessage(id, '🚫 *Unauthorized.*', { parse_mode: 'Markdown' });
+  const targetId = parseInt(msg.text.replace('/unban', '').trim());
+  if (!targetId) return bot.sendMessage(id, '⚠️ Usage: `/unban <userId>`', { parse_mode: 'Markdown' });
+  const user = store.users.get(targetId);
+  if (!user) return bot.sendMessage(id, '❌ User not found.');
+  user.banned = false;
+  log(id, 'UNBAN', `${targetId}`);
+  return bot.sendMessage(id, `✅ User \`${targetId}\` (*${user.firstName}*) unbanned.`, { parse_mode: 'Markdown' });
+}
+
+// ─── Event wiring ─────────────────────────────────────────────
+bot.onText(/\/start/,     handleStart);
+bot.onText(/\/help/,      handleHelp);
+bot.onText(/\/history/,   handleHistory);
+bot.onText(/\/settings/,  handleSettings);
+bot.onText(/\/stats/,     handleStats);
+bot.onText(/\/premium/,   handlePremium);
+bot.onText(/\/feedback/,  handleFeedback);
+bot.onText(/\/cancel/,    handleCancel);
+bot.onText(/\/admin/,     handleAdmin);
+bot.onText(/\/broadcast/, handleBroadcast);
+bot.onText(/\/ban/,       handleBan);
+bot.onText(/\/unban/,     handleUnban);
+bot.on('message',         handleMessage);
+bot.on('callback_query',  handleCallback);
+
+// ─── Global error handlers ────────────────────────────────────
+bot.on('polling_error', (err) => console.error('[POLLING ERROR]', err.code, err.message));
+bot.on('error',         (err) => console.error('[BOT ERROR]', err.message));
+process.on('unhandledRejection', (r) => console.error('[UNHANDLED]', r));
+process.on('uncaughtException',  (e) => console.error('[UNCAUGHT]',  e.message));
+
+// ─── Startup ──────────────────────────────────────────────────
+console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+console.log('🤖  Premium Video Downloader Bot v3.0 — ONLINE');
+console.log(`👑  Admin ID : ${ADMIN_ID || 'NOT SET'}`);
+console.log(`🌐  Mini App : ${MINI_APP_URL}`);
+console.log(`🔗  Base URL : ${BASE_URL}`);
+console.log(`📁  Tmp Dir  : ${TMP_DIR}`);
+console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
