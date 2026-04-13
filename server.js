@@ -16,26 +16,44 @@ const express  = require('express');
 const cors     = require('cors');
 const path     = require('path');
 const fs       = require('fs');
-const { spawn, execSync } = require('child_process');
+const { spawn, execSync, spawnSync } = require('child_process');
+const https = require('https');
+const os = require('os');
 
-// ── Auto-install yt-dlp if not found ──────────────────────────
-try {
-  execSync('yt-dlp --version', { stdio: 'ignore' });
-  console.log('✅ yt-dlp already installed');
-} catch (e) {
-  console.log('⏳ Installing yt-dlp...');
+// ── Auto-install yt-dlp binary ────────────────────────────────
+function installYtDlp() {
+  const ytdlpPath = '/tmp/yt-dlp';
+  
+  // Check if already installed
   try {
-    execSync('pip3 install yt-dlp', { stdio: 'inherit' });
-    console.log('✅ yt-dlp installed!');
-  } catch (e2) {
-    try {
-      execSync('pip install yt-dlp', { stdio: 'inherit' });
-      console.log('✅ yt-dlp installed via pip!');
-    } catch (e3) {
-      console.error('❌ yt-dlp install failed:', e3.message);
-    }
+    execSync(`${ytdlpPath} --version`, { stdio: 'ignore' });
+    console.log('✅ yt-dlp already installed');
+    return ytdlpPath;
+  } catch {}
+
+  // Try system yt-dlp
+  try {
+    execSync('yt-dlp --version', { stdio: 'ignore' });
+    console.log('✅ yt-dlp found in system');
+    return 'yt-dlp';
+  } catch {}
+
+  // Download binary from GitHub
+  console.log('⏳ Downloading yt-dlp binary...');
+  try {
+    execSync(
+      `curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o ${ytdlpPath} && chmod +x ${ytdlpPath}`,
+      { stdio: 'inherit', timeout: 60000 }
+    );
+    console.log('✅ yt-dlp downloaded!');
+    return ytdlpPath;
+  } catch (e) {
+    console.error('❌ yt-dlp download failed:', e.message);
+    return 'yt-dlp';
   }
 }
+
+const YTDLP_BIN = installYtDlp();
 const { v4: uuidv4 } = require('uuid');
 
 const app      = express();
@@ -90,7 +108,7 @@ app.get('/api/info', (req, res) => {
   const { url } = req.query;
   if (!url) return res.status(400).json({ error: 'url query parameter is required' });
 
-  const proc = spawn('yt-dlp', ['--dump-json', '--no-playlist', '--no-warnings', url]);
+  const proc = spawn(YTDLP_BIN, ['--dump-json', '--no-playlist', '--no-warnings', url]);
   let out = '', err = '';
   proc.stdout.on('data', d => out += d);
   proc.stderr.on('data', d => err += d);
@@ -154,7 +172,7 @@ app.get('/api/download', (req, res) => {
 
   console.log(`[DOWNLOAD] jobId:${jobId} quality:${quality} format:${format} url:${url.slice(0, 60)}`);
 
-  const proc   = spawn('yt-dlp', args);
+  const proc   = spawn(YTDLP_BIN, args);
   let   stderr = '';
   proc.stderr.on('data', d => { stderr += d; });
 
@@ -234,7 +252,7 @@ app.get('/api/download/start', (req, res) => {
   res.json({ jobId, message: 'Download started' });
 
   // Run in background
-  const proc = spawn('yt-dlp', args);
+  const proc = spawn(YTDLP_BIN, args);
   proc.stderr.on('data', d => {
     const str = d.toString();
     const m = str.match(/(\d{1,3}\.\d)%/);
