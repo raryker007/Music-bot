@@ -15,10 +15,34 @@
 
 require('dotenv').config();
 const TelegramBot   = require('node-telegram-bot-api');
-const { spawn }     = require('child_process');
+const { spawn, execSync } = require('child_process');
 const fs            = require('fs');
 const path          = require('path');
 const { v4: uuidv4 } = require('uuid');
+const YTDlpWrap     = require('yt-dlp-wrap').default;
+
+// ─── yt-dlp path ──────────────────────────────────────────────
+let YTDLP_BIN = './yt-dlp-bin';
+(async () => {
+  try {
+    execSync(`${YTDLP_BIN} --version`, { stdio: 'ignore' });
+    console.log('[BOT] ✅ yt-dlp ready at', YTDLP_BIN);
+  } catch {
+    try {
+      execSync('yt-dlp --version', { stdio: 'ignore' });
+      YTDLP_BIN = 'yt-dlp';
+      console.log('[BOT] ✅ yt-dlp found in system');
+    } catch {
+      console.log('[BOT] ⏳ Downloading yt-dlp...');
+      try {
+        await YTDlpWrap.downloadFromGithub(YTDLP_BIN);
+        console.log('[BOT] ✅ yt-dlp downloaded!');
+      } catch(e) {
+        console.error('[BOT] ❌ yt-dlp download failed:', e.message);
+      }
+    }
+  }
+})();
 
 // ─── Config ──────────────────────────────────────────────────
 const BOT_TOKEN    = process.env.BOT_TOKEN;
@@ -544,7 +568,7 @@ async function handleVideoUrl(msg, url, platform, quality = '720p HD') {
     const EDIT_COOLDOWN = 3000; // edit at most every 3s (avoid flood)
 
     await new Promise((resolve, reject) => {
-      const proc = spawn('yt-dlp', ytArgs);
+      const proc = spawn(YTDLP_BIN, ytArgs);
       let   stderr = '';
 
       proc.stderr.on('data', async (chunk) => {
