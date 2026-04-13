@@ -16,28 +16,26 @@ const express  = require('express');
 const cors     = require('cors');
 const path     = require('path');
 const fs       = require('fs');
-const { spawn, execSync } = require('child_process');
+const { spawn } = require('child_process');
 const YTDlpWrap = require('yt-dlp-wrap').default;
 
-// ── Setup yt-dlp ──────────────────────────────────────────────
-let ytDlpPath = './yt-dlp-bin';
-async function setupYtDlp() {
+// ── yt-dlp Binary Setup ───────────────────────────────────────
+const YTDLP_PATH = '/tmp/yt-dlp-bin';
+(async () => {
   try {
-    execSync(`${ytDlpPath} --version`, { stdio: 'ignore' });
-    console.log('✅ yt-dlp ready at', ytDlpPath);
+    const ytDlp = new YTDlpWrap(YTDLP_PATH);
+    await ytDlp.getVersion();
+    console.log('[SERVER] ✅ yt-dlp ready');
   } catch {
     try {
-      execSync('yt-dlp --version', { stdio: 'ignore' });
-      ytDlpPath = 'yt-dlp';
-      console.log('✅ yt-dlp found in system');
-    } catch {
-      console.log('⏳ Downloading yt-dlp...');
-      await YTDlpWrap.downloadFromGithub(ytDlpPath);
-      console.log('✅ yt-dlp downloaded!');
+      console.log('[SERVER] ⏳ Downloading yt-dlp...');
+      await YTDlpWrap.downloadFromGithub(YTDLP_PATH);
+      console.log('[SERVER] ✅ yt-dlp downloaded!');
+    } catch(e) {
+      console.error('[SERVER] ❌ yt-dlp failed:', e.message);
     }
   }
-}
-setupYtDlp().catch(console.error);
+})();
 const { v4: uuidv4 } = require('uuid');
 
 const app      = express();
@@ -92,7 +90,7 @@ app.get('/api/info', (req, res) => {
   const { url } = req.query;
   if (!url) return res.status(400).json({ error: 'url query parameter is required' });
 
-  const proc = spawn(ytDlpPath, ['--dump-json', '--no-playlist', '--no-warnings', url]);
+  const proc = spawn(YTDLP_PATH, ['--dump-json', '--no-playlist', '--no-warnings', url]);
   let out = '', err = '';
   proc.stdout.on('data', d => out += d);
   proc.stderr.on('data', d => err += d);
@@ -156,7 +154,7 @@ app.get('/api/download', (req, res) => {
 
   console.log(`[DOWNLOAD] jobId:${jobId} quality:${quality} format:${format} url:${url.slice(0, 60)}`);
 
-  const proc   = spawn(ytDlpPath, args);
+  const proc   = spawn(YTDLP_PATH, args);
   let   stderr = '';
   proc.stderr.on('data', d => { stderr += d; });
 
@@ -236,7 +234,7 @@ app.get('/api/download/start', (req, res) => {
   res.json({ jobId, message: 'Download started' });
 
   // Run in background
-  const proc = spawn(ytDlpPath, args);
+  const proc = spawn(YTDLP_PATH, args);
   proc.stderr.on('data', d => {
     const str = d.toString();
     const m = str.match(/(\d{1,3}\.\d)%/);
